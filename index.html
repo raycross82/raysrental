@@ -19,6 +19,30 @@
   </noscript>
 </head>
 <body>
+  <!--
+    Netlify Forms "blueprint" — a static, hidden copy of the Build a Quote form.
+    The quote form is rendered client-side, so Netlify's build-time form detection
+    cannot see it. This static version is parsed at deploy time so the "quote" form
+    and its fields get registered. It is hidden from users and is replaced at runtime
+    when the app bundle swaps the document; its only job is build-time detection.
+    Every field name here matches what the live form POSTs (see Quote.html).
+  -->
+  <form name="quote" data-netlify="true" netlify-honeypot="bot-field" hidden>
+    <input type="hidden" name="form-name" value="quote" />
+    <input name="bot-field" />
+    <input name="name" />
+    <input type="tel" name="phone" />
+    <input name="address" />
+    <input name="city" />
+    <input type="date" name="date" />
+    <input type="datetime-local" name="startTime" />
+    <input type="datetime-local" name="endTime" />
+    <input name="package" />
+    <input name="fulfillment" />
+    <input name="items" />
+    <input name="total" />
+    <input name="deposit" />
+  </form>
   <div id="__bundler_thumbnail">
   <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
     <rect width="1200" height="800" fill="#0A1526"></rect>
