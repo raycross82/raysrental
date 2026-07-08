@@ -1,7 +1,113 @@
 [build]
-  publish = "."
+  command = "rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out"
+  publish = "out"
+
+# --- Redirects: old .html URLs and JS-era slugs -> new clean URLs ---
+[[redirects]]
+  from = "/Home.html"
+  to = "/"
+  status = 301
+  force = true
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 404
+  from = "/index.html"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/home"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Inventory.html"
+  to = "/inventory/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Quote.html"
+  to = "/quote/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Service-Areas.html"
+  to = "/service-areas/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/FAQ.html"
+  to = "/faq/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/About.html"
+  to = "/about/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Blog.html"
+  to = "/blog/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Blog-Seating-Guide.html"
+  to = "/blog/seating-guide/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Blog-Quinceanera.html"
+  to = "/blog/backyard-quinceanera-dfw/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Blog-Cookout-Checklist.html"
+  to = "/blog/backyard-cookout-checklist/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/blog-seating-guide"
+  to = "/blog/seating-guide/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/blog-quinceanera"
+  to = "/blog/backyard-quinceanera-dfw/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/blog-cookout-checklist"
+  to = "/blog/backyard-cookout-checklist/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/Rays Rentals Netlify Ready.zip"
+  to = "/"
+  status = 301
+  force = true
+
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
