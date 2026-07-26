@@ -99,6 +99,30 @@ to = "/"
 status = 301
 force = true
 
+[[redirects]]
+from = "/review"
+to = "https://search.google.com/local/writereview?placeid=ChIJZ1qgnrDGGw4R8tmVd2rxE_s"
+status = 302
+force = true
+
+[[redirects]]
+from = "/review/"
+to = "https://search.google.com/local/writereview?placeid=ChIJZ1qgnrDGGw4R8tmVd2rxE_s"
+status = 302
+force = true
+
+[[redirects]]
+from = "/reviews"
+to = "https://search.google.com/local/writereview?placeid=ChIJZ1qgnrDGGw4R8tmVd2rxE_s"
+status = 302
+force = true
+
+[[redirects]]
+from = "/reviews/"
+to = "https://search.google.com/local/writereview?placeid=ChIJZ1qgnrDGGw4R8tmVd2rxE_s"
+status = 302
+force = true
+
 [[headers]]
 for = "/assets/img/*"
 [headers.values]
