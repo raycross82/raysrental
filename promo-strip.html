@@ -1,0 +1,40 @@
+<style>
+#rr-promo{background:#E7B43B;width:100%}
+#rr-promo .rr-in{max-width:1180px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:9px;min-height:21px}
+#rr-promo .rr-msg{color:#412402;font-size:14.5px;line-height:1.35;text-align:center;transition:opacity .28s ease}
+#rr-promo .rr-msg b{font-weight:800}
+#rr-promo .rr-ic{font-size:14px;color:#412402;flex:none;transition:opacity .28s ease}
+#rr-promo a{color:#412402;text-decoration:underline}
+@media(max-width:600px){#rr-promo .rr-msg{font-size:12.5px}#rr-promo .rr-in{padding:8px 12px;gap:7px}}
+@media(prefers-reduced-motion:reduce){#rr-promo .rr-msg,#rr-promo .rr-ic{transition:none}}
+</style>
+<div id="rr-promo">
+  <div class="rr-in">
+    <span class="rr-ic" id="rrIc" aria-hidden="true">&#10052;</span>
+    <span class="rr-msg" id="rrMsg"><b>Free cooler</b> with any order $50+</span>
+  </div>
+</div>
+<script>
+(function(){
+  var M=[
+    {i:'❄',t:'<b>Free cooler<\/b> with any order $50+'},
+    {i:'⚡',t:'<b>Same-day delivery<\/b> often available — <a href="tel:+19454441941">call to check<\/a>'},
+    {i:'✓',t:'<b>Clean &amp; sanitized<\/b> after every event'}
+  ];
+  var ic=document.getElementById('rrIc'),ms=document.getElementById('rrMsg'),bar=document.getElementById('rr-promo');
+  if(!ic||!ms||!bar)return;
+  var i=0,t=null;
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function paint(){ic.innerHTML=M[i].i;ms.innerHTML=M[i].t;}
+  function step(){
+    ms.style.opacity='0';ic.style.opacity='0';
+    setTimeout(function(){i=(i+1)%M.length;paint();ms.style.opacity='1';ic.style.opacity='1';},280);
+  }
+  function go(){if(!reduce&&!t)t=setInterval(step,5000);}
+  function stop(){if(t){clearInterval(t);t=null;}}
+  bar.addEventListener('mouseenter',stop);
+  bar.addEventListener('mouseleave',go);
+  document.addEventListener('visibilitychange',function(){document.hidden?stop():go();});
+  go();
+})();
+</script>

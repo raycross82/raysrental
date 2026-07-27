@@ -1,5 +1,5 @@
 [build]
-command = "rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out"
+command = "rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && sed -i '/<\\/header>/r promo-strip.html' out/index.html"
 publish = "out"
 
 # --- Redirects: old .html URLs and JS-era slugs -> new clean URLs ---
