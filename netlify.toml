@@ -4,7 +4,13 @@
 # The old quote/thanks/ page lives inside raysrental-deploy.zip, so it is removed
 # from the unpacked output rather than by rewriting the archive. This stays correct
 # even if the archive is re-uploaded with the page still in it.
-command = '''rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && cp -R site-overlay/. out/ && rm -rf out/quote/thanks && sed -i '/<\/header>/r promo-strip.html' out/index.html && sed -i 's|action="/quote/thanks/"|action="/thank-you/"|' out/quote/index.html && grep -q 'action="/thank-you/"' out/quote/index.html && test ! -e out/quote/thanks'''
+#
+# raysrental-deploy.zip ALSO carries its own stale netlify.toml at the archive root.
+# Unpacking it lands a netlify.toml inside the publish directory, which becomes the
+# deploy's effective config and silently shadows this file -- its older, shorter
+# redirect list wins and any rule added here is dropped without an error. Delete it
+# after unpacking, and assert it is gone so a re-uploaded archive cannot regress this.
+command = '''rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && cp -R site-overlay/. out/ && rm -f out/netlify.toml && rm -rf out/quote/thanks && sed -i '/<\/header>/r promo-strip.html' out/index.html && sed -i 's|action="/quote/thanks/"|action="/thank-you/"|' out/quote/index.html && grep -q 'action="/thank-you/"' out/quote/index.html && test ! -e out/quote/thanks && test ! -e out/netlify.toml'''
 publish = "out"
 
 # --- Redirects: old .html URLs and JS-era slugs -> new clean URLs ---
