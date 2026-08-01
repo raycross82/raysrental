@@ -1,5 +1,10 @@
 [build]
-command = "rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && sed -i '/<\\/header>/r promo-strip.html' out/index.html"
+# Literal string ('''): no TOML escaping, so the sed expressions read as-is.
+# site-overlay/ holds hand-maintained pages layered on top of the zip contents.
+# The old quote/thanks/ page lives inside raysrental-deploy.zip, so it is removed
+# from the unpacked output rather than by rewriting the archive. This stays correct
+# even if the archive is re-uploaded with the page still in it.
+command = '''rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && cp -R site-overlay/. out/ && rm -rf out/quote/thanks && sed -i '/<\/header>/r promo-strip.html' out/index.html && sed -i 's|action="/quote/thanks/"|action="/thank-you/"|' out/quote/index.html && grep -q 'action="/thank-you/"' out/quote/index.html && test ! -e out/quote/thanks'''
 publish = "out"
 
 # --- Redirects: old .html URLs and JS-era slugs -> new clean URLs ---
@@ -30,6 +35,19 @@ force = true
 [[redirects]]
 from = "/Quote.html"
 to = "/quote/"
+status = 301
+force = true
+
+# Retired quote confirmation page -> current one
+[[redirects]]
+from = "/quote/thanks/"
+to = "/thank-you/"
+status = 301
+force = true
+
+[[redirects]]
+from = "/quote/thanks"
+to = "/thank-you/"
 status = 301
 force = true
 
