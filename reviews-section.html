@@ -1,0 +1,72 @@
+<!-- Homepage customer reviews. Injected into out/index.html immediately before the
+     final CTA / quote band by the build command in netlify.toml. Kept as a fragment
+     (like promo-strip.html) so the homepage itself stays owned by raysrental-deploy.zip.
+     Styles are inline here because assets/css/style.css also lives inside the archive.
+     No <img> and no third-party assets: stars and avatars are CSS/SVG only.
+     Deliberately no Review / aggregateRating structured data — self-hosted review markup
+     on a LocalBusiness page is self-serving and ineligible for review rich results. -->
+<style>
+#reviews{--rv-navy:#0E1C30;--rv-gold:#E8A940}
+#reviews .rv-summary{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 26px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 30px;margin:30px auto 0;max-width:520px}
+#reviews .rv-score{font-family:var(--serif);font-weight:700;font-size:3rem;line-height:1;color:var(--rv-navy)}
+#reviews .rv-summary-text{text-align:left}
+#reviews .rv-summary-text b{display:block;color:var(--rv-navy);font-size:1.02rem}
+#reviews .rv-summary-text span{color:var(--ink-soft);font-size:.93rem}
+#reviews .rv-stars{display:inline-flex;gap:3px;line-height:0}
+#reviews .rv-stars svg{width:19px;height:19px;fill:var(--rv-gold)}
+#reviews .rv-card{display:flex;flex-direction:column;text-align:left;margin:0}
+#reviews .rv-card blockquote{margin:14px 0 0;color:var(--ink);font-size:1.02rem}
+#reviews .rv-card figcaption{display:flex;align-items:center;gap:12px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+#reviews .rv-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:50%;background:var(--rv-navy);color:var(--rv-gold);font-family:var(--serif);font-weight:700;font-size:1.15rem;display:flex;align-items:center;justify-content:center}
+#reviews .rv-card cite{font-style:normal;font-weight:800;color:var(--rv-navy)}
+#reviews .rv-cta{background:var(--rv-navy);text-align:left;display:flex;flex-direction:column;justify-content:center}
+#reviews .rv-cta h3{color:#fff;margin-bottom:.5rem}
+#reviews .rv-cta p{color:#cfd7e2;margin-bottom:1.4rem}
+#reviews .rv-cta .btn{background:var(--rv-gold);color:var(--rv-navy);align-self:flex-start}
+#reviews .rv-cta .btn:hover{background:#d8992f}
+#reviews .rv-all{margin-top:34px}
+#reviews .rv-all a{font-weight:800}
+@media(max-width:640px){
+  #reviews .rv-summary{gap:6px 18px;padding:20px}
+  #reviews .rv-score{font-size:2.5rem}
+  #reviews .rv-cta .btn{align-self:stretch;text-align:center}
+}
+</style>
+<section id="reviews">
+  <div class="container center">
+    <p class="kicker">Customer Reviews</p>
+    <h2>Trusted by hosts across Dallas&ndash;Fort Worth</h2>
+    <p class="lead">Real reviews from real DFW events &mdash; weddings, quincea&ntilde;eras, cookouts and corporate setups.</p>
+
+    <div class="rv-summary">
+      <span class="rv-score">5.0</span>
+      <div class="rv-summary-text">
+        <span class="rv-stars" role="img" aria-label="5 out of 5 stars"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg></span>
+        <b>Rated 5.0 out of 5</b>
+        <span>Based on 3 Google reviews</span>
+      </div>
+    </div>
+
+    <div class="grid grid-3">
+      <figure class="card rv-card">
+        <span class="rv-stars" role="img" aria-label="5 out of 5 stars"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg></span>
+        <blockquote cite="https://maps.google.com/?cid=18092069567652551154">Excellent service from start to finish! The table and chairs were very clean (new), sturdy, and they delivered at the time promised. The owners were professional and friendly which made the entire process quick and easy. Will definitely be using them again for my future events!!</blockquote>
+        <figcaption><span class="rv-avatar" aria-hidden="true">B</span><cite>Breanna</cite></figcaption>
+      </figure>
+
+      <figure class="card rv-card">
+        <span class="rv-stars" role="img" aria-label="5 out of 5 stars"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4 6.2 20.5l1.1-6.5L2.6 9.4l6.5-.9z"/></svg></span>
+        <blockquote cite="https://maps.google.com/?cid=18092069567652551154">I needed a last minute rental of chairs, and they were able to accommodate quickly and efficiently. Everything was clean and good communication. I will definitely book with them again!</blockquote>
+        <figcaption><span class="rv-avatar" aria-hidden="true">S</span><cite>Serena M.</cite></figcaption>
+      </figure>
+
+      <div class="card rv-cta">
+        <h3>Rented with us?</h3>
+        <p>Your review helps other DFW families find us.</p>
+        <a class="btn" href="/review/">Write a Google review</a>
+      </div>
+    </div>
+
+    <p class="rv-all"><a href="https://maps.google.com/?cid=18092069567652551154" rel="noopener">Read all reviews on Google</a></p>
+  </div>
+</section>
