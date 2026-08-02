@@ -17,7 +17,17 @@
 # The footer "Reviews" link is appended after the Explore > Contact item on every page.
 # Each injection is asserted below so a re-uploaded archive that moves these anchors
 # fails the build instead of silently dropping the section or the link.
-command = '''rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && cp -R site-overlay/. out/ && rm -f out/netlify.toml && rm -rf out/quote/thanks && sed -i '/<\/header>/r promo-strip.html' out/index.html && sed -i '/<section class="cta-band">/e cat reviews-section.html' out/index.html && find out -name '*.html' -exec sed -i 's|<li><a href="/contact/">Contact</a></li>|&<li><a href="/review/">Reviews</a></li>|' {} + && sed -i 's|action="/quote/thanks/"|action="/thank-you/"|' out/quote/index.html && grep -q 'action="/thank-you/"' out/quote/index.html && grep -q 'id="reviews"' out/index.html && grep -q '<li><a href="/review/">Reviews</a></li>' out/index.html && grep -q '<li><a href="/review/">Reviews</a></li>' out/faq/index.html && test ! -e out/quote/thanks && test ! -e out/netlify.toml'''
+#
+# Headings that run text straight into a <br> (`<h1>DFW Event Rentals<br>Made Easy</h1>`)
+# read as one word to anything that flattens the markup -- screen readers, search
+# snippets, copy/paste. A space is inserted before the break in every heading that has
+# this shape. Purely a text-content fix: with white-space:normal a space at the end of a
+# line is dropped during layout, so the rendered two-line heading is byte-for-byte the
+# same on screen. This runs after the injections above so fragment headings are covered
+# too, and the archive keeps owning the pages. The assertion is the general pattern
+# rather than one string, so a re-uploaded archive that reintroduces it anywhere fails
+# the build.
+command = '''rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && cp -R site-overlay/. out/ && rm -f out/netlify.toml && rm -rf out/quote/thanks && sed -i '/<\/header>/r promo-strip.html' out/index.html && sed -i '/<section class="cta-band">/e cat reviews-section.html' out/index.html && find out -name '*.html' -exec sed -i 's|<li><a href="/contact/">Contact</a></li>|&<li><a href="/review/">Reviews</a></li>|' {} + && find out -name '*.html' -exec sed -i 's|\(<h[1-6][^>]*>[^<]*[^[:space:]]\)\(<br[^>]*>\)|\1 \2|g' {} + && sed -i 's|action="/quote/thanks/"|action="/thank-you/"|' out/quote/index.html && grep -q 'action="/thank-you/"' out/quote/index.html && grep -q 'id="reviews"' out/index.html && grep -q '<li><a href="/review/">Reviews</a></li>' out/index.html && grep -q '<li><a href="/review/">Reviews</a></li>' out/faq/index.html && grep -q '<h1>DFW Event Rentals <br>Made Easy</h1>' out/index.html && ! grep -rE '<h[1-6][^>]*>[^<]*[^[:space:]]<br' out --include='*.html' && test ! -e out/quote/thanks && test ! -e out/netlify.toml'''
 publish = "out"
 
 # --- Redirects: old .html URLs and JS-era slugs -> new clean URLs ---
