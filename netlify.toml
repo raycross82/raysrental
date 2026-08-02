@@ -10,7 +10,14 @@
 # deploy's effective config and silently shadows this file -- its older, shorter
 # redirect list wins and any rule added here is dropped without an error. Delete it
 # after unpacking, and assert it is gone so a re-uploaded archive cannot regress this.
-command = '''rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && cp -R site-overlay/. out/ && rm -f out/netlify.toml && rm -rf out/quote/thanks && sed -i '/<\/header>/r promo-strip.html' out/index.html && sed -i 's|action="/quote/thanks/"|action="/thank-you/"|' out/quote/index.html && grep -q 'action="/thank-you/"' out/quote/index.html && test ! -e out/quote/thanks && test ! -e out/netlify.toml'''
+#
+# reviews-section.html is injected into the homepage the same way promo-strip.html is,
+# so the homepage stays owned by the archive. `sed '/pat/e cat file'` writes the file
+# out BEFORE the matched line (GNU sed), which puts reviews ahead of the final CTA band.
+# The footer "Reviews" link is appended after the Explore > Contact item on every page.
+# Each injection is asserted below so a re-uploaded archive that moves these anchors
+# fails the build instead of silently dropping the section or the link.
+command = '''rm -rf out && mkdir out && unzip -o raysrental-deploy.zip -d out && unzip -o seo-update.zip -d out && cp -R site-overlay/. out/ && rm -f out/netlify.toml && rm -rf out/quote/thanks && sed -i '/<\/header>/r promo-strip.html' out/index.html && sed -i '/<section class="cta-band">/e cat reviews-section.html' out/index.html && find out -name '*.html' -exec sed -i 's|<li><a href="/contact/">Contact</a></li>|&<li><a href="/review/">Reviews</a></li>|' {} + && sed -i 's|action="/quote/thanks/"|action="/thank-you/"|' out/quote/index.html && grep -q 'action="/thank-you/"' out/quote/index.html && grep -q 'id="reviews"' out/index.html && grep -q '<li><a href="/review/">Reviews</a></li>' out/index.html && grep -q '<li><a href="/review/">Reviews</a></li>' out/faq/index.html && test ! -e out/quote/thanks && test ! -e out/netlify.toml'''
 publish = "out"
 
 # --- Redirects: old .html URLs and JS-era slugs -> new clean URLs ---
