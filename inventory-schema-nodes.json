@@ -1,0 +1,13 @@
+[
+  {
+    "@type": "CollectionPage",
+    "@id": "https://raysrental.com/inventory/#webpage",
+    "url": "https://raysrental.com/inventory/",
+    "name": "Rental Prices and Inventory",
+    "description": "Per-day rental prices for folding tables, chairs, coolers and JBL PartyBox speakers in Dallas-Fort Worth.",
+    "dateModified": "2026-08-10",
+    "isPartOf": {"@id": "https://raysrental.com/#website"},
+    "about": {"@id": "https://raysrental.com/#business"},
+    "publisher": {"@id": "https://raysrental.com/#business"}
+  }
+]
