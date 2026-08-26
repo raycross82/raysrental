@@ -1,0 +1,194 @@
+<!-- Mobile running-total bar for /quote/. Injected into out/quote/index.html immediately
+     before the sitewide Call Ray / Text Us bar by the build command in netlify.toml, so the
+     page itself stays owned by raysrental-deploy.zip -- the same page carries the package and
+     a-la-carte prices, and a frozen overlay copy would mask a re-uploaded archive's price
+     changes. Styles and script are inline here for the same reason: assets/css/style.css and
+     assets/js/quote.js both live inside the archive.
+
+     Why it exists: style.css sets .summary-card{position:static} below 900px, so on every
+     phone the running total leaves the sticky rail and lands in the page flow near the bottom
+     of a 3000px page. Someone adding chairs could not see their total without hunting for it.
+     This bar is purely additive -- .summary-card keeps its place, and the cart stays the
+     single source of truth. The bar is driven by the cart's own recalculation: netlify.toml
+     appends a window.rrQuoteBar() call to the end of renderSummary in assets/js/quote.js, the
+     same function that writes input[name=total] and input[name=items], and the bar then reads
+     those two values back. It never re-derives a price. A second copy of the arithmetic that
+     could disagree with the summary card would be worse than no bar at all, and a bar that is
+     rendered but never subscribed -- stuck at "$0 / day" while the cart updates behind it --
+     is indistinguishable from an empty quote, so the hook is asserted at build time.
+
+     Below 769px the archive ships its own fixed .callbar. Two stacked bars would eat ~115px
+     of a small phone screen, so while this bar is up the callbar is hidden and the bottom edge
+     belongs to one bar only; the moment the cart empties, the bar hides and the callbar comes
+     back. That trade is only right on this page, where "Text quote" pre-fills the items and
+     total and is strictly better than a generic "Text Us". Every other page is untouched, and
+     scripts/assert-quote-bar.mjs fails the build if this markup reaches one.
+
+     Deliberately no aria-live on the total: .summary-card is already an aria-live region
+     showing the same number, and a second one would announce every quantity change twice. -->
+<style>
+#rr-qbar{display:none}
+@media(max-width:900px){
+  #rr-qbar{--qb-navy:#0E1C30;--qb-gold:#E8A940;--qb-gold-dark:#d3942c}
+  body.rr-qbar-on #rr-qbar{display:flex;align-items:center;gap:12px;position:fixed;left:0;right:0;bottom:0;z-index:90;background:var(--qb-navy);border-top:2px solid var(--qb-gold);box-shadow:0 -6px 20px rgba(14,28,48,.32);padding:9px 14px;padding-bottom:calc(9px + env(safe-area-inset-bottom))}
+  #rr-qbar .qb-sum{flex:1 1 auto;min-width:0;line-height:1.15}
+  #rr-qbar .qb-label{display:block;color:#cdd8ea;font-size:.68rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+  #rr-qbar .qb-total{display:block;margin-top:2px;color:#fff;font-family:var(--serif);font-weight:700;font-size:1.3rem}
+  #rr-qbar .qb-per{font-family:var(--sans);font-size:.78rem;font-weight:700;color:var(--qb-gold);white-space:nowrap}
+  #rr-qbar .qb-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+  #rr-qbar .btn{padding:11px 15px;font-size:.95rem;line-height:1.2;white-space:nowrap}
+  #rr-qbar .qb-gold{background:var(--qb-gold);color:var(--qb-navy);border-color:var(--qb-gold)}
+  #rr-qbar .qb-gold:hover,#rr-qbar .qb-gold:active{background:var(--qb-gold-dark);border-color:var(--qb-gold-dark);color:var(--qb-navy)}
+  /* Take over the bottom edge from the sitewide Call Ray / Text Us bar (768px and under). */
+  body.rr-qbar-on .callbar{display:none}
+  /* --rr-qbar-h is the bar's measured height, safe-area padding included, set by the script
+     below. Keeps the Reserve This Quote button and the footer clear of the bar. */
+  body.rr-qbar-on{padding-bottom:calc(var(--rr-qbar-h,96px) + 14px)}
+}
+@media(max-width:380px){
+  body.rr-qbar-on #rr-qbar{gap:8px;padding-left:11px;padding-right:11px}
+  #rr-qbar .qb-total{font-size:1.16rem}
+  #rr-qbar .btn{padding:10px 11px;font-size:.87rem}
+}
+</style>
+<div id="rr-qbar" role="region" aria-label="Your running quote">
+  <div class="qb-sum">
+    <span class="qb-label">Your quote</span>
+    <span class="qb-total"><span id="rrQbAmount">$0</span> <span class="qb-per" id="rrQbPer">/ day</span></span>
+  </div>
+  <div class="qb-actions">
+    <a class="btn btn-ghost" id="rrQbText" href="sms:+14695718720">Text quote</a>
+    <button class="btn qb-gold" type="button" id="rrQbReserve">Reserve</button>
+  </div>
+</div>
+<script>
+(function(){
+  var SMS='sms:+14695718720';
+  var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var bar=document.getElementById('rr-qbar');
+  if(!bar)return;
+
+  // Only the bar's own markup is held onto. Everything belonging to the cart is looked up
+  // again on every call: the summary card is re-rendered as the quote changes, and a node
+  // reference captured at load can end up detached from the document, which shows up as a
+  // quote stuck at $0 rather than as an error.
+  function el(id){return document.getElementById(id)}
+  function quoteForm(){return el('quoteForm')||document.querySelector('form[name=quote]')}
+  function field(name){
+    var sel='[name="'+name+'"]',f=quoteForm();
+    return (f&&f.querySelector(sel))||document.querySelector(sel);
+  }
+
+  // assets/js/quote.js writes one string into both input[name=total] and #s-total: "$212",
+  // or "$212 + delivery". The hidden input is the value that actually gets posted, so it is
+  // the one read here, with the visible total as a fallback. Nothing is recalculated -- the
+  // bar and the summary card cannot disagree because there is only one calculation.
+  function readTotal(){
+    var input=field('total'),raw=(input&&input.value)||'';
+    if(!raw){var shown=el('s-total');raw=(shown&&shown.textContent)||''}
+    raw=String(raw).trim();
+    var head=(raw.split('+')[0]||'').trim();
+    return {text:head||'$0',num:parseFloat(head.replace(/[^0-9.]/g,''))||0,delivery:raw.indexOf('+')>-1};
+  }
+
+  // Same list the cart posts, e.g. "10x Folding Table; 60x Folding Chair", read as-is.
+  function readItems(){
+    var input=field('items'),raw=String((input&&input.value)||'').trim();
+    if(!raw||raw.toLowerCase()==='none')return '';
+    return raw.split(';').map(function(part){return part.trim()}).filter(Boolean).join(', ');
+  }
+
+  // The date input is always yyyy-mm-dd. Parsed by hand rather than with Date, which reads a
+  // bare date as UTC and can name the day before in US time zones.
+  function prettyDate(v){
+    var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||'');
+    if(!m)return '';
+    var mo=MONTHS[+m[2]-1];
+    return mo?mo+' '+(+m[3])+', '+m[1]:'';
+  }
+
+  function message(total,items){
+    var msg="Hi Ray, I'd like to rent "+items+" - "+total.text+"/day"+(total.delivery?" plus delivery":"")+".";
+    var date=field('date'),when=prettyDate(date&&date.value);
+    if(when)msg+=" My event is on "+when+".";
+    return msg;
+  }
+
+  function measure(){
+    var h=bar.offsetHeight;
+    if(h)document.body.style.setProperty('--rr-qbar-h',h+'px');
+  }
+
+  function update(){
+    var total=readTotal(),items=readItems();
+    var amount=el('rrQbAmount'),per=el('rrQbPer'),link=el('rrQbText');
+    if(amount)amount.textContent=total.text;
+    if(per)per.textContent=total.delivery?'/ day + delivery':'/ day';
+    if(link)link.setAttribute('href',items?SMS+'?&body='+encodeURIComponent(message(total,items)):SMS);
+    if(total.num>0){document.body.classList.add('rr-qbar-on');measure()}
+    else document.body.classList.remove('rr-qbar-on');
+  }
+
+  function reserve(){
+    var form=quoteForm();
+    if(!form)return;
+    var fields=form.querySelectorAll('input[required],select[required],textarea[required]'),empty=null;
+    for(var i=0;i<fields.length;i++){
+      var f=fields[i];
+      if(f.type==='hidden'||f.disabled)continue;
+      if(!String(f.value||'').trim()){empty=f;break;}
+    }
+    var submit=form.querySelector('button[type=submit],input[type=submit]');
+    var focusTarget=empty||submit;
+    var scrollTarget=empty&&empty.closest?empty.closest('fieldset')||empty:focusTarget;
+    if(!scrollTarget)return;
+    var head=document.querySelector('.site-header');
+    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    var top=scrollTarget.getBoundingClientRect().top+(window.pageYOffset||document.documentElement.scrollTop||0)-((head?head.offsetHeight:0)+16);
+    if(top<0)top=0;
+    try{window.scrollTo({top:top,behavior:reduce?'auto':'smooth'})}catch(e){window.scrollTo(0,top)}
+    if(!focusTarget)return;
+    // Focus after the scroll settles, and without scrolling again -- focusing an input mid
+    // smooth-scroll opens the keyboard and fights the animation on iOS.
+    setTimeout(function(){
+      try{focusTarget.focus({preventScroll:true})}catch(e){focusTarget.focus()}
+    },reduce?60:520);
+  }
+
+  // The wiring. assets/js/quote.js calls window.rrQuoteBar() at the end of renderSummary --
+  // the same function that writes input[name=total] and input[name=items] -- so the bar is
+  // updated by the cart's own recalculation rather than by guessing when one happened. The
+  // call is appended by the build command in netlify.toml and asserted by
+  // scripts/assert-quote-bar.mjs, because a bar that is merely rendered and never subscribed
+  // looks exactly like an empty cart.
+  window.rrQuoteBar=update;
+
+  // Fallback subscription, so the bar still tracks the cart if a re-uploaded archive ever
+  // reshapes renderSummary past the point where that one-line hook can be appended. Both
+  // paths run the same update(), which reads the cart's own numbers, so they cannot conflict
+  // and running both is harmless.
+  var pending=false;
+  function schedule(){
+    if(pending)return;
+    pending=true;
+    var run=function(){pending=false;update()};
+    if(window.requestAnimationFrame)requestAnimationFrame(run);else setTimeout(run,16);
+  }
+  if(window.MutationObserver){
+    var card=document.querySelector('.summary-card');
+    if(card)new MutationObserver(schedule).observe(card,{childList:true,characterData:true,subtree:true});
+  }
+  var form=quoteForm();
+  if(form){
+    form.addEventListener('input',schedule);
+    form.addEventListener('change',schedule);
+    form.addEventListener('click',schedule);
+  }
+  window.addEventListener('load',schedule);
+  window.addEventListener('resize',measure);
+  window.addEventListener('orientationchange',schedule);
+  var reserveBtn=el('rrQbReserve');
+  if(reserveBtn)reserveBtn.addEventListener('click',reserve);
+  update();
+})();
+</script>
