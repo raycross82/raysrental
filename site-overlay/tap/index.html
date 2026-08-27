@@ -32,12 +32,20 @@
      "Get more reviews" -> copy link. Swapping the href is the only change needed.
      =========================================================================== -->
 
+<!-- No webfonts, no CSS/JS/image CDN, no third-party embeds: every byte this page
+     requests is served from this domain, so it renders identically on a venue's
+     bad wifi and leaks nothing about whoever scanned the card. -->
 <style>
 :root{
+  --navy:#0E1C30;      /* page */
+  --card:#16283D;      /* rows and cards: one step lighter than the page */
+  --card-2:#132335;    /* bottom of the card gradient */
   --gold:#E8A940;
-  --ink:#F4F7FB;
-  --muted:#9CB0C8;
-  --line:rgba(255,255,255,.085);
+  --gold-soft:rgba(232,169,64,.55);
+  --ink:#FFFFFF;
+  --muted:#93A8C2;     /* blue-grey subtitles */
+  --line:rgba(255,255,255,.09);   /* hairline, lighter navy */
+  --hair:rgba(232,169,64,.34);    /* thin gold rules */
 }
 *,*::before,*::after{box-sizing:border-box}
 /* overflow-x guard + break-word are belt and braces against a horizontal
@@ -47,7 +55,7 @@ body{
   margin:0;
   min-height:100vh;
   overflow-wrap:break-word;
-  background-color:#0E1C30;
+  background-color:var(--navy);
   color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   -webkit-font-smoothing:antialiased;
@@ -62,50 +70,51 @@ body::before{
   z-index:0;
   pointer-events:none;
   background:
-    radial-gradient(118% 80% at 50% 26%,
+    radial-gradient(120% 82% at 50% 24%,
       rgba(14,28,48,0) 0%,
-      rgba(10,20,35,.45) 52%,
-      rgba(4,9,17,.9) 100%);
+      rgba(10,20,35,.45) 54%,
+      rgba(4,9,17,.92) 100%);
 }
 .wrap{
   position:relative;
   z-index:1;
-  max-width:480px;
+  max-width:460px;
   margin:0 auto;
-  padding:44px 20px calc(40px + env(safe-area-inset-bottom));
+  padding:46px 18px calc(38px + env(safe-area-inset-bottom));
 }
 img{max-width:100%;display:block}
 
-/* ---------- masthead ---------- */
+/* ---------- header ---------- */
 .mast{text-align:center}
 .ring{
-  width:104px;
-  height:104px;
+  width:90px;
+  height:90px;
   margin:0 auto;
-  padding:7px;
+  padding:6px;
   border-radius:50%;
-  border:1px solid rgba(232,169,64,.5);
-  box-shadow:0 0 0 1px rgba(232,169,64,.1),0 14px 34px rgba(0,0,0,.42);
+  border:1px solid rgba(232,169,64,.55);
+  box-shadow:0 0 0 1px rgba(232,169,64,.09),0 12px 30px rgba(0,0,0,.45);
 }
 .ring img{width:100%;height:100%;border-radius:50%}
 .wordmark{
-  width:min(238px,74%);
+  width:min(240px,80%);
   height:auto;
-  margin:22px auto 0;
+  margin:24px auto 0;
 }
 .eyebrow{
   margin:20px 0 0;
   color:var(--gold);
-  font-size:clamp(.62rem,2.7vw,.7rem);
+  font-size:11px;
   font-weight:700;
-  letter-spacing:.19em;
+  letter-spacing:.18em;
   line-height:1.7;
+  text-transform:uppercase;
 }
 .rule{
-  width:52px;
-  height:2px;
+  width:60px;
+  height:1px;
   margin:18px auto 0;
-  border-radius:2px;
+  border:0;
   background:linear-gradient(90deg,rgba(232,169,64,0),var(--gold),rgba(232,169,64,0));
 }
 
@@ -113,184 +122,222 @@ img{max-width:100%;display:block}
 .hero{margin-top:30px}
 /* The photo's own bottom edge is masked away rather than covered by an opaque
    navy gradient: an opaque overlay only blends where the page happens to be
-   exactly #0E1C30, and would seam against the vignette anywhere else. */
+   exactly #0E1C30, and would seam against the vignette anywhere else. Masking
+   fades the banner into whatever is actually behind it. */
 .hero img{
   width:100%;
-  aspect-ratio:16/10;
+  height:150px;
   object-fit:cover;
   object-position:center 42%;
-  border-radius:20px;
-  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 52%,rgba(0,0,0,.5) 80%,transparent 100%);
-  mask-image:linear-gradient(to bottom,#000 0%,#000 52%,rgba(0,0,0,.5) 80%,transparent 100%);
+  border-radius:18px;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 66%,rgba(0,0,0,.45) 87%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 66%,rgba(0,0,0,.45) 87%,transparent 100%);
 }
 
 /* ---------- action rows ---------- */
-.rows{margin-top:30px;display:flex;flex-direction:column;gap:11px}
+.rows{margin-top:26px;display:flex;flex-direction:column;gap:12px}
 .row{
   display:flex;
   align-items:center;
   gap:13px;
-  min-height:68px;
-  padding:13px 15px;
-  border-radius:15px;
+  min-height:74px;
+  padding:14px 18px;
+  border-radius:30px;
   border:1px solid var(--line);
-  background:linear-gradient(180deg,#17293F 0%,#122132 100%);
+  background:linear-gradient(180deg,var(--card) 0%,var(--card-2) 100%);
   color:var(--ink);
   text-decoration:none;
-  box-shadow:0 2px 10px rgba(0,0,0,.2);
+  box-shadow:0 2px 12px rgba(0,0,0,.22);
   transition:border-color .18s ease,transform .12s ease,background .18s ease;
 }
 .row:active{transform:scale(.988)}
-.ico{
+.badge{
   flex:0 0 auto;
-  width:42px;
-  height:42px;
+  width:46px;
+  height:46px;
   display:grid;
   place-items:center;
   border-radius:50%;
   color:var(--gold);
-  border:1px solid rgba(232,169,64,.3);
-  background:radial-gradient(circle at 34% 26%,rgba(232,169,64,.2),rgba(232,169,64,.06));
+  border:1px solid rgba(232,169,64,.32);
+  background:radial-gradient(circle at 34% 26%,rgba(232,169,64,.2),rgba(232,169,64,.055));
 }
-.ico svg{width:20px;height:20px;display:block}
+.badge svg{width:21px;height:21px;display:block}
+/* The Google mark is drawn for a white ground -- its four brand colours are only
+   "standard" against white, so this one badge carries a white fill instead of the
+   gold glass. Same 46px circle as the others, so the row structure is unchanged. */
+.badge.g{background:#fff;border-color:rgba(255,255,255,.85)}
+.badge.g svg{width:23px;height:23px}
 .txt{min-width:0;flex:1 1 auto}
 .t{
   display:block;
   margin:0;
-  font-size:clamp(.9rem,3.6vw,.97rem);
+  font-size:clamp(12.5px,3.5vw,15px);
   font-weight:700;
-  letter-spacing:.005em;
+  letter-spacing:.04em;
   line-height:1.25;
+  text-transform:uppercase;
+  color:var(--ink);
 }
 .s{
   display:block;
-  margin:3px 0 0;
+  margin:4px 0 0;
   color:var(--muted);
-  font-size:clamp(.715rem,3vw,.79rem);
+  font-size:clamp(11.5px,3vw,12.5px);
   font-weight:400;
   line-height:1.35;
 }
-.chev{flex:0 0 auto;width:16px;height:16px;color:rgba(156,176,200,.6)}
+.chev{flex:0 0 auto;width:16px;height:16px;color:var(--gold-soft)}
 
-/* ---------- follow ---------- */
+/* ---------- follow us ---------- */
 .follow{margin-top:34px;text-align:center}
-.label{
-  margin:0;
-  color:var(--gold);
-  font-size:.65rem;
-  font-weight:700;
-  letter-spacing:.2em;
-}
-.fb{
+/* Label with a thin gold rule running out to either side. */
+.legend{
   display:flex;
   align-items:center;
-  justify-content:center;
-  gap:10px;
-  min-height:56px;
-  margin-top:16px;
-  padding:14px 18px;
-  border-radius:15px;
-  border:1px solid var(--line);
-  background:linear-gradient(180deg,#17293F 0%,#122132 100%);
-  color:var(--ink);
-  font-size:.92rem;
-  font-weight:700;
-  text-decoration:none;
-  box-shadow:0 2px 10px rgba(0,0,0,.2);
+  gap:14px;
+  margin:0;
 }
-.fb svg{width:22px;height:22px;color:var(--gold);flex:0 0 auto}
+.legend::before,.legend::after{
+  content:"";
+  flex:1 1 auto;
+  height:1px;
+  background:var(--hair);
+}
+.legend span{
+  color:var(--gold);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+.fb{
+  display:inline-flex;
+  flex-direction:column;
+  align-items:center;
+  gap:9px;
+  margin-top:20px;
+  padding:6px 14px;
+  color:var(--ink);
+  text-decoration:none;
+}
+.fb .badge{width:52px;height:52px}
+.fb .badge svg{width:24px;height:24px}
+.fb-name{
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
 
 /* ---------- card grids ---------- */
-.grid{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.grid{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid.top{margin-top:30px}
 .card{
   display:flex;
   flex-direction:column;
-  gap:5px;
-  padding:16px 14px;
-  border-radius:15px;
+  align-items:center;
+  gap:6px;
+  padding:18px 13px;
+  border-radius:16px;
   border:1px solid var(--line);
-  background:linear-gradient(180deg,#17293F 0%,#122132 100%);
+  background:linear-gradient(180deg,var(--card) 0%,var(--card-2) 100%);
   color:var(--ink);
   text-decoration:none;
   text-align:center;
   overflow-wrap:break-word;
-  box-shadow:0 2px 10px rgba(0,0,0,.2);
+  box-shadow:0 2px 12px rgba(0,0,0,.22);
 }
+.card .badge{width:42px;height:42px;margin-bottom:2px}
+.card .badge svg{width:19px;height:19px}
 .card-h{
   margin:0;
-  font-size:clamp(.83rem,3.3vw,.9rem);
+  font-size:clamp(13px,3.4vw,14.5px);
   font-weight:700;
   line-height:1.3;
 }
+.card-h.caps{letter-spacing:.05em;text-transform:uppercase;font-size:clamp(12px,3.2vw,13.5px)}
 .card-s{
   margin:0;
   color:var(--muted);
-  font-size:clamp(.68rem,2.8vw,.75rem);
+  font-size:clamp(11px,2.9vw,12.5px);
   line-height:1.4;
 }
-.card .ico{margin:0 auto 3px}
 
 /* ---------- review card ---------- */
-.stars{display:flex;justify-content:center;gap:3px;margin-bottom:3px}
+.stars{display:flex;justify-content:center;gap:3px;margin-bottom:2px}
 .stars svg{width:13px;height:13px;color:var(--gold);flex:0 0 auto}
 .quote{
   margin:0;
-  font-size:clamp(.7rem,2.85vw,.77rem);
+  font-size:clamp(11px,2.9vw,12.5px);
   line-height:1.5;
-  color:#DCE6F2;
+  color:#E4EBF5;
   font-style:italic;
 }
 .attrib{
-  margin:7px 0 0;
+  margin:8px 0 0;
   color:var(--gold);
-  font-size:clamp(.62rem,2.5vw,.68rem);
+  font-size:clamp(10.5px,2.7vw,11.5px);
   font-weight:700;
   letter-spacing:.03em;
+  line-height:1.5;
+}
+.attrib small{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:10.5px;
+  font-weight:400;
+  letter-spacing:.02em;
 }
 
-/* ---------- qr block ---------- */
-.qr{
+/* ---------- footer block ---------- */
+.foot{margin-top:32px}
+.foot-top{
   display:flex;
   align-items:center;
-  gap:15px;
-  margin-top:30px;
+  gap:16px;
   padding:16px;
   border-radius:16px;
   border:1px solid var(--line);
-  background:linear-gradient(180deg,#17293F 0%,#122132 100%);
+  background:linear-gradient(180deg,var(--card) 0%,var(--card-2) 100%);
+  box-shadow:0 2px 12px rgba(0,0,0,.22);
 }
-.qr-img{
+/* White plate behind the QR: a dark-on-dark code is unscannable, and the quiet
+   zone has to be light for a phone camera to lock onto the finder patterns. */
+.qr-plate{
   flex:0 0 auto;
-  width:92px;
-  height:92px;
-  padding:7px;
-  border-radius:11px;
+  width:110px;
+  height:110px;
+  padding:8px;
+  border-radius:12px;
   background:#fff;
 }
-.qr-img img{width:100%;height:100%}
-.qr-copy{min-width:0}
-.qr-t{
+.qr-plate img{width:100%;height:100%}
+.foot-copy{min-width:0}
+.foot-t{
   margin:0;
   color:var(--gold);
-  font-size:clamp(.74rem,3vw,.83rem);
+  font-size:clamp(11.5px,3vw,13px);
   font-weight:700;
   letter-spacing:.11em;
-  line-height:1.5;
+  line-height:1.55;
+  text-transform:uppercase;
 }
-.qr-s{
-  margin:6px 0 0;
-  color:var(--muted);
-  font-size:clamp(.68rem,2.8vw,.75rem);
+.foot-s{
+  margin:7px 0 0;
+  color:var(--ink);
+  font-size:clamp(11px,2.9vw,12.5px);
   line-height:1.45;
 }
-
-/* ---------- footer ---------- */
-.foot{
-  margin:34px 0 0;
-  text-align:center;
-  color:rgba(156,176,200,.72);
-  font-size:.7rem;
+.foot-end{margin-top:26px;text-align:center}
+.foot-mark{width:26px;height:26px;margin:0 auto}
+.foot-end .rule{margin-top:16px}
+.foot-line{
+  margin:16px 0 0;
+  color:rgba(147,168,194,.8);
+  font-size:11px;
   line-height:1.7;
   letter-spacing:.02em;
 }
@@ -298,18 +345,26 @@ img{max-width:100%;display:block}
 /* ---------- interaction ---------- */
 a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 @media (hover:hover){
-  .row:hover,.fb:hover,a.card:hover{
+  .row:hover,a.card:hover{
     border-color:rgba(232,169,64,.42);
     background:linear-gradient(180deg,#1B3049 0%,#152538 100%);
   }
+  .fb:hover .badge{border-color:rgba(232,169,64,.6)}
 }
 @media (prefers-reduced-motion:reduce){
   *{transition:none!important}
 }
+/* 320px: trim the horizontal budget so "LEAVE GOOGLE REVIEW" still sits on one
+   line beside a 42px badge. Row height and radius are untouched. */
 @media (max-width:359px){
-  .wrap{padding-left:15px;padding-right:15px}
-  .row{padding-left:13px;padding-right:13px;gap:11px}
-  .ico{width:40px;height:40px}
+  .wrap{padding-left:14px;padding-right:14px}
+  .row{padding-left:14px;padding-right:14px;gap:11px}
+  .badge{width:42px;height:42px}
+  .badge svg{width:19px;height:19px}
+  .grid{gap:10px}
+  .card{padding:16px 11px}
+  .foot-top{gap:12px;padding:13px}
+  .qr-plate{width:96px;height:96px}
 }
 </style>
 </head>
@@ -321,8 +376,8 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
       <img src="/assets/img/mark.png" width="192" height="192" alt="">
     </div>
     <img class="wordmark" src="/assets/img/logo.png" width="1046" height="112" alt="Ray's Rentals">
-    <p class="eyebrow">TAP TO BOOK, REVIEW OR REACH US</p>
-    <div class="rule"></div>
+    <p class="eyebrow">Tap to leave a review or reach us</p>
+    <hr class="rule">
   </header>
 
   <div class="hero">
@@ -333,10 +388,12 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
   <nav class="rows" aria-label="Ways to reach Ray's Rentals">
 
     <a class="row" href="/quote/">
-      <span class="ico" aria-hidden="true">
+      <span class="badge" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>
+          <path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9"/>
+          <rect x="9" y="1.6" width="6" height="3.6" rx="1.2"/>
+          <path d="M8 10h6"/><path d="M8 14h3"/>
+          <path d="M19.4 12.6a1.7 1.7 0 0 1 2.4 2.4L17 19.8l-2.8.6.6-2.8z"/>
         </svg>
       </span>
       <span class="txt">
@@ -347,33 +404,36 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
     </a>
 
     <a class="row" id="google-review" href="https://maps.google.com/?cid=18092069567652551154" target="_blank" rel="noopener">
-      <span class="ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/>
+      <span class="badge g" aria-hidden="true">
+        <svg viewBox="0 0 48 48">
+          <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+          <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07l-7.35 5.7C7.96 41.07 15.4 46 24 46z"/>
+          <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18l-7.35-5.7C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+          <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
         </svg>
       </span>
       <span class="txt">
-        <span class="t">Leave a Google Review</span>
+        <span class="t">Leave Google Review</span>
         <span class="s">Your feedback means the world.</span>
       </span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
     </a>
 
     <a class="row" href="tel:+14695718720">
-      <span class="ico" aria-hidden="true">
+      <span class="badge" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.78.65 2.62a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.46-1.22a2 2 0 0 1 2.11-.45c.84.31 1.72.53 2.62.65A2 2 0 0 1 22 16.92z"/>
         </svg>
       </span>
       <span class="txt">
         <span class="t">Call Now</span>
-        <span class="s">Speak with Ray directly.</span>
+        <span class="s">Speak with our team.</span>
       </span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
     </a>
 
     <a class="row" href="sms:+14695718720">
-      <span class="ico" aria-hidden="true">
+      <span class="badge" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
@@ -386,7 +446,7 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
     </a>
 
     <a class="row" href="/">
-      <span class="ico" aria-hidden="true">
+      <span class="badge" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/>
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
@@ -394,7 +454,7 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
       </span>
       <span class="txt">
         <span class="t">Website</span>
-        <span class="s">Browse prices and packages.</span>
+        <span class="s">Visit our website.</span>
       </span>
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
     </a>
@@ -402,22 +462,35 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
   </nav>
 
   <section class="follow">
-    <p class="label">FOLLOW US</p>
-    <div class="rule"></div>
+    <p class="legend"><span>Follow us</span></p>
     <a class="fb" href="https://www.facebook.com/share/1Nyw1Z7E2k/" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12z"/>
-      </svg>
-      Facebook
+      <span class="badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12z"/>
+        </svg>
+      </span>
+      <span class="fb-name">Facebook</span>
     </a>
   </section>
 
   <div class="grid top">
     <a class="card" href="/">
+      <span class="badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </span>
       <p class="card-h">raysrental.com</p>
       <p class="card-s">Visit our website</p>
     </a>
     <div class="card">
+      <span class="badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      </span>
       <p class="card-h">Dallas-Fort Worth</p>
       <p class="card-s">Proudly serving DFW</p>
     </div>
@@ -425,14 +498,14 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 
   <div class="grid">
     <a class="card" href="/assets/rays-rentals.vcf" download="rays-rentals.vcf">
-      <span class="ico" aria-hidden="true">
+      <span class="badge" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
           <circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>
         </svg>
       </span>
-      <p class="card-h">Save Contact</p>
-      <p class="card-s">Add us to your phone.</p>
+      <p class="card-h caps">Save Contact</p>
+      <p class="card-s">Add our info to your phone.</p>
     </a>
     <div class="card">
       <div class="stars" role="img" aria-label="Rated 5 out of 5 stars">
@@ -443,22 +516,27 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
       </div>
       <p class="quote">&ldquo;Everything was clean and good communication. I will definitely book with them again!&rdquo;</p>
-      <p class="attrib">Serena M., Google review</p>
+      <p class="attrib">- Serena M.<small>Google review</small></p>
     </div>
   </div>
 
-  <section class="qr">
-    <div class="qr-img">
-      <img src="/assets/img/tap-qr.svg" width="296" height="296" loading="lazy"
-           alt="QR code that opens raysrental.com/tap">
+  <section class="foot">
+    <div class="foot-top">
+      <div class="qr-plate">
+        <img src="/assets/img/tap-qr.svg" width="296" height="296" loading="lazy"
+             alt="QR code that opens raysrental.com/tap">
+      </div>
+      <div class="foot-copy">
+        <p class="foot-t">Tap. Connect. Celebrate.</p>
+        <p class="foot-s">Thank you for supporting Ray's Rentals</p>
+      </div>
     </div>
-    <div class="qr-copy">
-      <p class="qr-t">TAP. CONNECT. CELEBRATE.</p>
-      <p class="qr-s">Thank you for supporting Ray's Rentals</p>
+    <div class="foot-end">
+      <img class="foot-mark" src="/assets/img/mark.png" width="192" height="192" alt="" loading="lazy">
+      <hr class="rule">
+      <p class="foot-line">(469) 571-8720 - Serving all of Dallas-Fort Worth - Mon-Sat 8am-7pm</p>
     </div>
   </section>
-
-  <p class="foot">(469) 571-8720 - Serving all of Dallas-Fort Worth - Mon-Sat 8am-7pm</p>
 
 </div>
 </body>
