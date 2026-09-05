@@ -11,26 +11,7 @@
 <link rel="icon" href="/assets/img/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/assets/img/mark.png">
 
-<!-- ===========================================================================
-     GOOGLE REVIEW DESTINATION - the one link on this page worth knowing about.
-
-     It is defined exactly once, as the href of the single anchor with
-     id="google-review" in the action rows below. Search this file for
-     `id="google-review"` to find it; nothing else references the URL, so
-     changing it there changes it everywhere.
-
-     Current value (a Maps "cid" link) opens the business listing, from which the
-     visitor still has to find the review button. To get a true one-tap review
-     that opens the write-a-review box directly, replace it with the Google
-     Business Profile short link, which has the form:
-
-         https://g.page/r/.../review
-
-     where the middle segment is the profile's place id.
-
-     Get it from the Google Business Profile dashboard: "Ask for reviews" /
-     "Get more reviews" -> copy link. Swapping the href is the only change needed.
-     =========================================================================== -->
+<!-- Google review link: official "Ask for reviews" short link from Ray's Business Profile. Opens the star-rating dialog directly. -->
 
 <!-- No webfonts, no CSS/JS/image CDN, no third-party embeds: every byte this page
      requests is served from this domain, so it renders identically on a venue's
@@ -403,7 +384,7 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
     </a>
 
-    <a class="row" id="google-review" href="https://maps.google.com/?cid=18092069567652551154" target="_blank" rel="noopener">
+    <a class="row" id="google-review" href="https://g.page/r/CfLZlXdq8RP7EBM/review" target="_blank" rel="noopener">
       <span class="badge g" aria-hidden="true">
         <svg viewBox="0 0 48 48">
           <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>

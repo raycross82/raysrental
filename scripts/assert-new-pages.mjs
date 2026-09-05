@@ -21,6 +21,16 @@
 // The FAQPage on /quinceanera-rentals/ is also checked question-for-question against the
 // <details> blocks a visitor actually sees, since schema that answers differently from the
 // page is a manual-action risk rather than a rendering bug.
+//
+// /corporate-event-rentals/ is checked the same way and for one more thing. Its five
+// room-setup tables are hand-written and quote a corporate buyer a delivered price, so all
+// nineteen rows are recomputed from (tables x $8) + (chairs x $2) + $150 and compared, and
+// the per-layout table and chair counts are pinned to the figures the page was signed off
+// with -- a row whose arithmetic is internally consistent but whose table count drifted is
+// still a wrong quote. Separately, the page must not claim insurance: there is no
+// certificate of insurance yet, so the page carries an HTML comment where that block will
+// go and the visible text is swept for the word. That is not a rendering bug either -- it
+// renders perfectly and tells a venue something untrue -- so it fails the build.
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -68,12 +78,16 @@ const decode = (s) => s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, e) => {
 });
 
 // --- shared head-tag checks -------------------------------------------------
+// `updated` marks the two pages that carry a visible "Updated August 2026" line under the
+// H1. The corporate page is dated through schema instead, so it opts out rather than the
+// check being loosened for everyone.
 const PAGES = [
-  { rel: 'seating-calculator/index.html', url: 'https://raysrental.com/seating-calculator/' },
-  { rel: 'quinceanera-rentals/index.html', url: 'https://raysrental.com/quinceanera-rentals/' },
+  { rel: 'seating-calculator/index.html', url: 'https://raysrental.com/seating-calculator/', updated: true },
+  { rel: 'quinceanera-rentals/index.html', url: 'https://raysrental.com/quinceanera-rentals/', updated: true },
+  { rel: 'corporate-event-rentals/index.html', url: 'https://raysrental.com/corporate-event-rentals/' },
 ];
 
-for (const { rel, url } of PAGES) {
+for (const { rel, url, updated } of PAGES) {
   const html = read(rel);
   if (!html.includes(`<link rel="canonical" href="${url}">`)) fail(`${rel}: canonical is not ${url}`);
   if (!html.includes(`<meta property="og:url" content="${url}">`)) fail(`${rel}: og:url is not ${url}`);
@@ -81,8 +95,10 @@ for (const { rel, url } of PAGES) {
     const attr = tag.startsWith('og:') ? 'property' : 'name';
     if (!html.includes(`<meta ${attr}="${tag}"`)) fail(`${rel}: missing ${tag}`);
   }
-  if (!/<p class="rr-updated">Updated August 2026<\/p>/.test(html)) fail(`${rel}: no "Updated August 2026" line`);
-  if (!/<h1>[\s\S]*?<\/h1>[\s\S]{0,200}?<p class="rr-updated">/.test(html)) fail(`${rel}: the updated line is not under the H1`);
+  if (updated) {
+    if (!/<p class="rr-updated">Updated August 2026<\/p>/.test(html)) fail(`${rel}: no "Updated August 2026" line`);
+    if (!/<h1>[\s\S]*?<\/h1>[\s\S]{0,200}?<p class="rr-updated">/.test(html)) fail(`${rel}: the updated line is not under the H1`);
+  }
 
   const graph = graphOf(html, rel);
   const crumbs = graph.filter((n) => n['@type'] === 'BreadcrumbList');
@@ -227,6 +243,146 @@ if (faq.length !== 1) {
   });
 }
 
+// --- corporate: five room-setup tables, all nineteen rows -------------------
+// Layout, table count and chair count are pinned rather than derived: the whole point of the
+// page is that headcount alone does not tell you the table count, so there is no formula here
+// to re-derive them from. The money is derived, because that is the number a buyer acts on.
+const DELIVERY = 150;
+const SETUPS = [
+  { id: 'classroom',   unit: 'Attendees', rows: [[25, 13, 25], [50, 25, 50], [100, 50, 100], [200, 100, 200]] },
+  { id: 'theater',     unit: 'Attendees', rows: [[25, 2, 25], [50, 2, 50], [100, 3, 100], [200, 4, 200]] },
+  { id: 'seated-meal', unit: 'Attendees', rows: [[25, 5, 25], [50, 9, 50], [100, 17, 100], [200, 34, 200]] },
+  { id: 'expo',        unit: 'Booths',    rows: [[10, 10, 20], [20, 20, 40], [30, 30, 60], [40, 40, 80]] },
+  { id: 'u-shape',     unit: 'Attendees', rows: [[12, 6, 12], [20, 10, 20], [30, 15, 30]] },
+];
+
+const corp = read('corporate-event-rentals/index.html');
+const ROW_RE = /<tr><th scope="row">(\d+)<\/th><td>(\d+)<\/td><td>(\d+)<\/td><td class="rr-price">\$([\d,]+)<\/td><\/tr>/g;
+
+let checkedRows = 0;
+for (const { id, unit, rows: want } of SETUPS) {
+  const start = corp.indexOf(`<div class="rr-layout" id="${id}">`);
+  if (start === -1) { fail(`corporate-event-rentals: no room-setup block with id="${id}"`); continue; }
+  const end = corp.indexOf('<div class="rr-layout" id="', start + 1);
+  const chunk = corp.slice(start, end === -1 ? undefined : end);
+
+  if (!chunk.includes(`<th scope="col">${unit}</th>`)) {
+    fail(`corporate-event-rentals: ${id} table does not lead with a "${unit}" column`);
+  }
+  // Without the scroll wrapper a table wider than a 320px phone widens the page itself
+  // rather than scrolling inside its own box, which is the one layout bug the brief calls out.
+  if (!/<div class="rr-scroll">\s*<table class="rr-table rr-setup">/.test(chunk)) {
+    fail(`corporate-event-rentals: ${id} table is not inside a .rr-scroll container`);
+  }
+
+  const got = [...chunk.matchAll(ROW_RE)];
+  if (got.length !== want.length) {
+    fail(`corporate-event-rentals: ${id} has ${got.length} rows, expected ${want.length}`);
+  }
+
+  want.forEach(([unitCount, tables, chairs], i) => {
+    const row = got[i];
+    const where = `corporate-event-rentals: ${id} row ${i + 1} (${unitCount} ${unit.toLowerCase()})`;
+    if (!row) { fail(`${where} is missing`); return; }
+    checkedRows += 1;
+
+    if (Number(row[1]) !== unitCount) fail(`${where} reads ${row[1]}, expected ${unitCount}`);
+    if (Number(row[2]) !== tables) fail(`${where} shows ${row[2]} tables, expected ${tables}`);
+    if (Number(row[3]) !== chairs) fail(`${where} shows ${row[3]} chairs, expected ${chairs}`);
+
+    const wantTotal = tables * TABLE_RATE + chairs * CHAIR_RATE + DELIVERY;
+    // Compared as the rendered string so "$1350" fails as loudly as a wrong sum would.
+    const wantText = `$${wantTotal.toLocaleString('en-US')}`;
+    if (`$${row[4]}` !== wantText) fail(`${where} totals $${row[4]}, expected ${wantText}`);
+  });
+}
+if (checkedRows !== 19) fail(`corporate-event-rentals: recomputed ${checkedRows} table rows, expected 19`);
+
+// The per-day rates and the delivery floor are quoted in prose too, and prose that disagrees
+// with the tables sends a buyer to the phone with the wrong number in their head.
+for (const phrase of [
+  '6-ft folding tables $8 per day, folding chairs $2 per day, delivery and setup from $150',
+  'Every total is tables at $8 per day, plus chairs at $2 per day, plus $150 delivery and setup.',
+]) {
+  if (!corp.includes(phrase)) fail(`corporate-event-rentals: missing the rate line "${phrase}"`);
+}
+
+// --- corporate: no product entity anywhere in the graph ---------------------
+// The sweep above only reads top-level @graph members. Offer and Product nodes nest inside
+// other nodes just as happily, so this walks the whole tree.
+const corpGraph = graphOf(corp, 'corporate-event-rentals/index.html');
+const BANNED = new Set(['ItemList', 'Product', 'Offer', 'AggregateOffer']);
+const banned = new Set();
+const walk = (node) => {
+  if (Array.isArray(node)) return node.forEach(walk);
+  if (!node || typeof node !== 'object') return;
+  for (const type of [node['@type']].flat()) if (BANNED.has(type)) banned.add(type);
+  Object.values(node).forEach(walk);
+};
+walk(corpGraph);
+if (banned.size) {
+  fail(`corporate-event-rentals: graph carries ${[...banned].join(', ')} -- /inventory/ owns the only product entity`);
+}
+
+const service = corpGraph.filter((n) => n['@type'] === 'Service');
+if (service.length !== 1) fail(`corporate-event-rentals: expected 1 Service node, found ${service.length}`);
+else {
+  if (service[0].serviceType !== 'Event Equipment Rental') fail('corporate-event-rentals: Service.serviceType is not "Event Equipment Rental"');
+  if (service[0].provider?.['@id'] !== 'https://raysrental.com/#business') fail('corporate-event-rentals: Service.provider does not reference the LocalBusiness @id');
+  if (service[0].areaServed?.name !== 'Dallas-Fort Worth') fail('corporate-event-rentals: Service.areaServed is not Dallas-Fort Worth');
+}
+if (/<meta name="robots"[^>]*noindex/.test(corp)) fail('corporate-event-rentals: page is noindex, it is meant to be indexable');
+
+// --- corporate: FAQ schema vs the visible FAQ ------------------------------
+const corpVisible = [...corp.matchAll(/<details class="faq-item"[^>]*><summary>([\s\S]*?)<\/summary><div class="a">([\s\S]*?)<\/div><\/details>/g)]
+  .map(([, q, a]) => [decode(q).trim(), decode(a).trim()]);
+
+if (corpVisible.length !== 6) fail(`corporate-event-rentals: expected 6 visible FAQ items, found ${corpVisible.length}`);
+if (corpVisible.some(([q]) => /capacity|how many (tables|chairs) do you (have|own)|inventory/i.test(q))) {
+  fail('corporate-event-rentals: FAQ asks about maximum capacity or inventory on hand');
+}
+
+const corpFaq = corpGraph.filter((n) => n['@type'] === 'FAQPage');
+if (corpFaq.length !== 1) {
+  fail(`corporate-event-rentals: expected 1 FAQPage, found ${corpFaq.length}`);
+} else {
+  const schema = corpFaq[0].mainEntity ?? [];
+  if (schema.length !== corpVisible.length) {
+    fail(`corporate-event-rentals: FAQPage has ${schema.length} questions, page shows ${corpVisible.length}`);
+  }
+  corpVisible.forEach(([q, a], i) => {
+    if (schema[i]?.name !== q) fail(`corporate-event-rentals: FAQ ${i + 1} schema question does not match the page`);
+    if (schema[i]?.acceptedAnswer?.text !== a) fail(`corporate-event-rentals: FAQ ${i + 1} schema answer does not match the page`);
+  });
+}
+
+// --- corporate: the page must not claim insurance --------------------------
+// Comments are stripped first, because the one place the word is allowed is the placeholder
+// marking where the block goes once a certificate actually exists.
+const COI_COMMENT = '<!-- INSURANCE BLOCK: add "Insured - certificate of insurance available on request, venue named as additional insured" here once COI is in hand -->';
+const coiCount = corp.split(COI_COMMENT).length - 1;
+if (coiCount !== 1) fail(`corporate-event-rentals: the INSURANCE BLOCK placeholder appears ${coiCount} times, expected 1`);
+
+const corpText = decode(
+  corp
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' '),
+).toLowerCase();
+for (const word of ['insur', 'licensed', 'bonded', 'net-30', 'net 30']) {
+  if (corpText.includes(word)) fail(`corporate-event-rentals: visible text contains "${word}"`);
+}
+
+// --- corporate: the nav link the netlify.toml sed is supposed to insert ----
+// Asserted on this page and on an archive-owned one, since the sed runs over both and a
+// missed anchor on either side leaves the page orphaned from the menu.
+const NAV_LINK = '<a href="/corporate-event-rentals/">Corporate</a><a class="nav-cta" href="/quote/">Build a Quote</a>';
+for (const rel of ['corporate-event-rentals/index.html', 'index.html', 'inventory/index.html']) {
+  const html = read(rel);
+  const hits = html.split(NAV_LINK).length - 1;
+  if (hits !== 1) fail(`${rel}: the Corporate nav link appears ${hits} times, expected exactly 1`);
+}
+
 if (problems.length) {
   console.error('assert-new-pages: the new pages are inconsistent with themselves:');
   for (const problem of problems) console.error(`  - ${problem}`);
@@ -234,5 +390,5 @@ if (problems.length) {
 }
 
 console.log(
-  `assert-new-pages: ok, 2 pages, ${rows.length} seating rows agree with the calculator, ${plans.length} package rows agree with /inventory/ pricing, ${visible.length} FAQs agree with their schema, 1 ItemList site-wide`,
+  `assert-new-pages: ok, 3 pages, ${rows.length} seating rows agree with the calculator, ${plans.length} package rows agree with /inventory/ pricing, ${checkedRows} corporate setup rows agree with (tables x $${TABLE_RATE}) + (chairs x $${CHAIR_RATE}) + $${DELIVERY}, ${visible.length + corpVisible.length} FAQs agree with their schema, no insurance claim on /corporate-event-rentals/, 1 ItemList site-wide`,
 );
