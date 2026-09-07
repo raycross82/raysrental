@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Form registration</title>
+<meta name="robots" content="noindex,nofollow">
+</head>
+<body>
+<!-- Netlify Forms build-time detection stub.
+     /agreement/ submits via fetch(), and Netlify only registers a form it can find in the
+     static output at deploy time, so the rental-agreement form is declared here with every
+     field name the page posts. Without this file those submissions 404. This page is not
+     linked from anywhere, is not in sitemap.xml, and is noindex. Keep the field list below
+     in sync with the hidden inputs in site-overlay/agreement/index.html. -->
+<form name="rental-agreement" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" hidden>
+  <input type="hidden" name="form-name" value="rental-agreement">
+  <input name="bot-field">
+  <input name="quote_number">
+  <input name="customer_name">
+  <input name="phone">
+  <input name="email">
+  <input name="address">
+  <input name="event_start">
+  <input name="event_end">
+  <input name="days">
+  <input name="tables">
+  <input name="chairs">
+  <input name="coolers">
+  <input name="speakers">
+  <input name="delivery_setup">
+  <input name="discount">
+  <input name="subtotal">
+  <input name="total">
+  <input name="deposit">
+  <input name="balance">
+  <textarea name="notes"></textarea>
+  <input name="signer_name">
+  <input name="agreed">
+  <input name="agreement_version">
+  <input name="signed_at">
+  <input name="user_agent">
+  <textarea name="signature_png"></textarea>
+</form>
+</body>
+</html>
