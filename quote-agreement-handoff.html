@@ -1,0 +1,232 @@
+<!-- /quote/ -> /agreement/ handoff. Injected into the archive-owned /quote/ page by netlify.toml. -->
+<script>
+/* Hands a submitted quote to /agreement/ as a signable, pre-filled rental agreement.
+   Two rules drive everything below:
+
+   1. The lead is recorded first, always. Ray's business runs on the Netlify Forms
+      submission, so the form is POSTed and awaited before anything navigates. If that POST
+      fails for any reason the browser is allowed to submit the form the old way, which
+      posts it again and lands on /thank-you/ -- a duplicated lead is recoverable, a lost
+      one is not.
+   2. A half-built link is worse than no link. If the payload cannot be built (no readable
+      event date, no name or phone, nothing in the cart) the customer goes to /thank-you/,
+      the behaviour this page has always had, rather than to an agreement that would render
+      its "we couldn't open this quote" fallback.
+
+   The payload is the v1 pipe-separated format /agreement/ already decodes: 15 fields,
+   UTF-8, base64url, no padding. Only raw inputs travel -- quantities, delivery, discount --
+   never a total; /agreement/ recomputes every figure from its own rates, so a hand-edited
+   link cannot change what is owed.
+
+   Delivery is the one signed field: 0 for free pickup, -1 as the sentinel for "delivery and
+   setup, quoted by location", which /agreement/ renders as a subtotal with no final total
+   and no dollar deposit until Ray confirms.
+
+   window.rrQuoteHandoff exposes the pure half of this file (encoder, package table, date and
+   note builders) so scripts/assert-new-pages.mjs can run the page's own encoder against the
+   agreement's own decoder at build time instead of a copy of either. */
+/* rr-agreement-handoff:start */
+(function(){
+  'use strict';
+
+  var ORDER = ['tables', 'chairs', 'coolers', 'speakers'];
+
+  // Package -> the items it contains plus the discount that makes the package price come out
+  // right at the per-item rates /agreement/ prices with. Party for 60 is 10 x $8 + 60 x $2 =
+  // $200 less $20 = the $180 on the card. Cart quantities stack on top; the discount does not.
+  var PACKAGES = {
+    'Party for 60':    {tables: 10, chairs: 60, coolers: 0, speakers: 0, discount: 20},
+    'Cookout for 60':  {tables: 10, chairs: 60, coolers: 2, speakers: 0, discount: 24},
+    'The Whole Party': {tables: 10, chairs: 60, coolers: 2, speakers: 1, discount: 29}
+  };
+
+  // Timing select -> a day offset from the event date and a wall-clock time. "Not sure yet"
+  // takes the most popular answer so the agreement still shows a concrete window; the notes
+  // field carries the customer's actual words either way, so Ray can see it was unconfirmed.
+  var DROPOFF = {
+    'Evening before the event':        {shift: -1, time: '18:00'},
+    'Morning of the event':            {shift:  0, time: '09:00'},
+    'Afternoon of the event':          {shift:  0, time: '14:00'},
+    'Not sure yet - Ray will confirm': {shift:  0, time: '09:00'}
+  };
+  var PICKUP = {
+    'Morning after the event':         {shift:  1, time: '10:00'},
+    'Same night after the event':      {shift:  0, time: '23:00'},
+    'Next evening':                    {shift:  1, time: '18:00'},
+    'Not sure yet - Ray will confirm': {shift:  1, time: '10:00'}
+  };
+
+  var DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+  var DEFAULT_DROPOFF = 'Not sure yet - Ray will confirm';
+  var DEFAULT_PICKUP  = 'Not sure yet - Ray will confirm';
+  var NOTES_MAX = 200;
+
+  // "|" is the field separator, so it can never survive in a value, and newlines and tabs
+  // would break the single-line payload the same way.
+  function clean(value){
+    return String(value == null ? '' : value).replace(/[|\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function count(value){
+    var n = parseInt(String(value == null ? '' : value).trim(), 10);
+    return isFinite(n) && n > 0 ? Math.min(n, 9999) : 0;
+  }
+
+  // UTF-8 -> base64url, no padding. Encoded to bytes first: btoa alone throws on anything
+  // outside Latin-1, which is every accented name this form takes.
+  function toBase64Url(str){
+    var s = String(str), bin = '', i;
+    if (typeof TextEncoder === 'function') {
+      var bytes = new TextEncoder().encode(s);
+      for (i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    } else {
+      bin = unescape(encodeURIComponent(s));
+    }
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function encode(fields){
+    return toBase64Url(fields.join('|'));
+  }
+
+  // Date arithmetic in UTC and formatted from the parts, so a rental that straddles a DST
+  // boundary cannot land on the wrong calendar day.
+  function shiftDate(y, mo, d, days){
+    var t = new Date(Date.UTC(y, mo - 1, d + days));
+    var mm = t.getUTCMonth() + 1, dd = t.getUTCDate();
+    return t.getUTCFullYear() + '-' + (mm < 10 ? '0' + mm : mm) + '-' + (dd < 10 ? '0' + dd : dd);
+  }
+
+  function dates(dateValue, dropoffValue, pickupValue){
+    var m = DATE_RE.exec(clean(dateValue));
+    if (!m) return null;
+    var y = +m[1], mo = +m[2], d = +m[3];
+    // Rejects 2026-02-31 and friends: only a real date round-trips through UTC unchanged.
+    var probe = new Date(Date.UTC(y, mo - 1, d));
+    if (probe.getUTCFullYear() !== y || probe.getUTCMonth() + 1 !== mo || probe.getUTCDate() !== d) return null;
+
+    var a = DROPOFF[clean(dropoffValue)] || DROPOFF[DEFAULT_DROPOFF];
+    var b = PICKUP[clean(pickupValue)]   || PICKUP[DEFAULT_PICKUP];
+    return {
+      start: shiftDate(y, mo, d, a.shift) + 'T' + a.time,
+      end:   shiftDate(y, mo, d, b.shift) + 'T' + b.time
+    };
+  }
+
+  // Both parties need to see what was actually picked, since the times above are derived.
+  function notes(dropoffValue, pickupValue, fulfillmentValue){
+    var line = 'Drop-off: ' + (clean(dropoffValue) || DEFAULT_DROPOFF) +
+               '. Pick-up: ' + (clean(pickupValue) || DEFAULT_PICKUP) +
+               '. Fulfillment: ' + (clean(fulfillmentValue) || 'Free Pickup') + '.';
+    return line.length > NOTES_MAX ? line.slice(0, NOTES_MAX - 1) + '.' : line;
+  }
+
+  function quoteNumber(now){
+    return 'W-' + (now || Date.now()).toString(36).toUpperCase();
+  }
+
+  // values: the raw form values, by field name. Returns the base64url payload, or null when
+  // there is not enough to build a real agreement.
+  function build(values, now){
+    var when = dates(values.date, values.dropoffTiming, values.pickupTiming);
+    if (!when) return null;
+
+    var name = clean(values.name), phone = clean(values.phone);
+    if (!name || !phone) return null;
+
+    var pkg = PACKAGES[clean(values['package'])] || null;
+    var qty = {}, items = 0;
+    for (var i = 0; i < ORDER.length; i++) {
+      qty[ORDER[i]] = (pkg ? pkg[ORDER[i]] : 0) + count(values[ORDER[i]]);
+      items += qty[ORDER[i]];
+    }
+    if (!items) return null;                       // an agreement for nothing is not signable
+
+    var delivery = clean(values.fulfillment) === 'Free Pickup' ? 0 : -1;
+    var place = [clean(values.address), clean(values.city)].filter(Boolean).join(', ');
+    // Address is optional on this form and /agreement/ needs the field, so say plainly where
+    // the equipment goes rather than shipping a payload the agreement page will reject.
+    if (!place) place = delivery === 0 ? "Pickup at Ray's Rentals lot, DFW" : 'Address to be confirmed with Ray';
+
+    return encode([
+      '1',
+      quoteNumber(now),
+      name,
+      phone,
+      clean(values.email),
+      place,
+      when.start,
+      when.end,
+      String(qty.tables),
+      String(qty.chairs),
+      String(qty.coolers),
+      String(qty.speakers),
+      String(delivery),
+      String(pkg ? pkg.discount : 0),
+      notes(values.dropoffTiming, values.pickupTiming, values.fulfillment)
+    ]);
+  }
+
+  window.rrQuoteHandoff = {
+    packages: PACKAGES, dropoff: DROPOFF, pickup: PICKUP, order: ORDER,
+    encode: encode, dates: dates, notes: notes, build: build, quoteNumber: quoteNumber
+  };
+
+  var form = document.getElementById('quoteForm');
+  if (!form) return;
+
+  function value(name){
+    var el = form.elements[name];
+    return el && typeof el.value === 'string' ? el.value : '';
+  }
+
+  function qty(id){
+    var el = document.getElementById('q-' + id);
+    return el ? el.value : '';
+  }
+
+  function readForm(){
+    var values = {
+      name: value('name'), phone: value('phone'), email: value('email'),
+      address: value('address'), city: value('city'), date: value('date'),
+      dropoffTiming: value('dropoffTiming'), pickupTiming: value('pickupTiming'),
+      fulfillment: value('fulfillment')
+    };
+    values['package'] = value('package');
+    for (var i = 0; i < ORDER.length; i++) values[ORDER[i]] = qty(ORDER[i]);
+    return values;
+  }
+
+  var submit = form.querySelector('button[type=submit]');
+  var label  = submit ? submit.textContent : '';
+  var sending = false;
+
+  form.addEventListener('submit', function(ev){
+    if (sending) { ev.preventDefault(); return; }
+
+    var hash = null;
+    try { hash = build(readForm()); } catch (err) { hash = null; }
+
+    ev.preventDefault();
+    sending = true;
+    if (submit) { submit.disabled = true; submit.textContent = 'Sending…'; }
+
+    fetch('/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams(new FormData(form)).toString()
+    }).then(function(res){
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (typeof gtag === 'function') gtag('event', 'generate_lead', {method: 'quote_form'});
+      window.location.href = hash ? '/agreement/#q=' + hash : '/thank-you/';
+    })['catch'](function(){
+      // Hand it back to the browser: a native submit posts to Netlify and lands on
+      // /thank-you/ exactly as it did before this file existed, and does not fire this
+      // handler again. Nothing is swallowed on the way.
+      if (submit) { submit.disabled = false; submit.textContent = label; }
+      form.submit();
+    });
+  });
+})();
+/* rr-agreement-handoff:end */
+</script>
