@@ -22,6 +22,28 @@
 // <details> blocks a visitor actually sees, since schema that answers differently from the
 // page is a manual-action risk rather than a rendering bug.
 //
+// The /quote/ -> /agreement/ handoff is checked the same way, and it is the check with the
+// most to lose. quote-agreement-handoff.html encodes a submitted quote into the URL hash and
+// /agreement/ decodes it, prices it and puts a signature on it. The two files never call each
+// other, so a change to either side alone does not throw: the agreement page simply renders
+// "we couldn't open this quote", or worse, reads a payload it can parse and prices something
+// the customer did not ask for. Neither is visible in a build log. So both scripts are pulled
+// out of the rendered pages, run in a stub DOM here, and driven against each other: the
+// encoder must reproduce the frozen v1 vector byte for byte, the decoder must read that same
+// vector back to 15 fields, and every package mapping is built by the real encoder and priced
+// by the real pricing function -- never by a copy of either -- with the resulting totals
+// checked against both the figures the packages were signed off with and the prices on the
+// /quote/ cards themselves. The two timing selects are pinned to the mapping tables as well,
+// since a renamed option silently falls through to the "not sure yet" default and would ship
+// an agreement with dates nobody picked.
+//
+// The delivery sentinel gets its own checks. Field 12 of -1 means "delivery quoted by
+// location": the agreement shows an equipment subtotal and no final total or dollar deposit
+// until Ray confirms the charge. A regression there does not look like a bug either -- it
+// looks like a confident, wrong number on a document someone is about to sign -- so the
+// quoted-by-location path is asserted to produce no numeric total and no numeric deposit,
+// and the priced path is asserted to still produce both.
+//
 // /corporate-event-rentals/ is checked the same way and for one more thing. Its five
 // room-setup tables are hand-written and quote a corporate buyer a delivered price, so all
 // nineteen rows are recomputed from (tables x $8) + (chairs x $2) + $150 and compared, and
@@ -34,6 +56,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 
 const ROOT = 'out';
 const LD_RE = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
@@ -383,6 +406,317 @@ for (const rel of ['corporate-event-rentals/index.html', 'index.html', 'inventor
   if (hits !== 1) fail(`${rel}: the Corporate nav link appears ${hits} times, expected exactly 1`);
 }
 
+// --- /quote/ -> /agreement/ handoff ---------------------------------------
+// Both scripts are lifted out of the rendered pages by the markers they carry and run here,
+// so every figure below comes from the code that ships rather than from a second copy of it.
+const QUOTE_PAGE = 'quote/index.html';
+const AGREEMENT_PAGE = 'agreement/index.html';
+const quotePage = read(QUOTE_PAGE);
+const agreementPage = read(AGREEMENT_PAGE);
+
+const scriptBetween = (html, marker, where) => {
+  const hits = [...html.matchAll(new RegExp(`/\\* ${marker}:start \\*/([\\s\\S]*?)/\\* ${marker}:end \\*/`, 'g'))];
+  if (hits.length !== 1) {
+    fail(`${where}: expected 1 ${marker} block, found ${hits.length}`);
+    return null;
+  }
+  return hits[0][1];
+};
+
+// Enough of a DOM for a page script to reach the end of its own body without throwing. Every
+// unknown property of a canvas context answers with a no-op, and every element lookup answers
+// with a node, so the scripts wire themselves up to nothing and expose their pure functions.
+const runPageScript = (src, where) => {
+  const ctxStub = () =>
+    new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => ((t[k] = v), true) });
+
+  const node = () => {
+    const el = {
+      textContent: '', value: '', href: '', src: '', className: '', id: '',
+      hidden: false, checked: false, disabled: false, width: 600, height: 180,
+      style: {}, dataset: {}, elements: {},
+      classList: { add() {}, remove() {}, contains: () => false },
+      appendChild: () => el, removeChild: () => el, insertBefore: () => el,
+      setAttribute() {}, removeAttribute() {}, getAttribute: () => null,
+      addEventListener() {}, removeEventListener() {},
+      scrollIntoView() {}, focus() {}, submit() {},
+      querySelector: () => node(), querySelectorAll: () => [],
+      getContext: () => ctxStub(), toDataURL: () => '',
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 600, height: 180 }),
+    };
+    return el;
+  };
+
+  const win = { location: { hash: '', search: '', href: '' }, addEventListener() {}, print() {}, dataLayer: [] };
+  const sandbox = {
+    window: win,
+    self: win,
+    navigator: { userAgent: 'assert-new-pages' },
+    location: win.location,
+    document: {
+      getElementById: () => node(),
+      querySelector: () => node(),
+      querySelectorAll: () => [],
+      createElement: () => node(),
+      addEventListener() {},
+      documentElement: node(),
+      body: node(),
+    },
+    atob, btoa, TextDecoder, TextEncoder, URLSearchParams, console,
+    FormData: class {},
+    fetch: () => new Promise(() => {}),
+  };
+
+  try {
+    runInNewContext(src, sandbox, { timeout: 5000 });
+  } catch (err) {
+    fail(`${where}: the page script threw before exposing its hooks (${err.message})`);
+  }
+  return win;
+};
+
+const handoffSrc = scriptBetween(quotePage, 'rr-agreement-handoff', QUOTE_PAGE);
+const agreeSrc = scriptBetween(agreementPage, 'rr-agreement', AGREEMENT_PAGE);
+const handoff = handoffSrc ? runPageScript(handoffSrc, QUOTE_PAGE).rrQuoteHandoff : null;
+const agreement = agreeSrc ? runPageScript(agreeSrc, AGREEMENT_PAGE).rrAgreement : null;
+
+if (!handoff) fail(`${QUOTE_PAGE}: the handoff script does not expose window.rrQuoteHandoff`);
+if (!agreement) fail(`${AGREEMENT_PAGE}: the agreement script does not expose window.rrAgreement`);
+
+// The frozen v1 wire format. Changing either side of the handoff without changing the other
+// breaks this line first, which is the point of writing it out in full.
+const VECTOR = [
+  '1', 'Q-TEST', 'Maria Gonzalez', '214-555-0142', '', '1801 N Lamar St, Dallas TX',
+  '2026-09-19T10:00', '2026-09-19T20:00', '10', '66', '1', '1', '150', '0',
+  'Backyard, gate on the left side.',
+];
+const VECTOR_B64 =
+  'MXxRLVRFU1R8TWFyaWEgR29uemFsZXp8MjE0LTU1NS0wMTQyfHwxODAxIE4gTGFtYXIgU3QsIERhbGxhcyBUWHwyMDI2LTA5LTE5VDEwOjAwfDIwMjYtMDktMTlUMjA6MDB8MTB8NjZ8MXwxfDE1MHwwfEJhY2t5YXJkLCBnYXRlIG9uIHRoZSBsZWZ0IHNpZGUu';
+const VECTOR_TOTAL = 404;
+const VECTOR_DEPOSIT = 101;
+const VECTOR_SUBTOTAL = 254;
+
+let handoffChecks = 0;
+
+if (handoff) {
+  const encoded = handoff.encode(VECTOR);
+  handoffChecks++;
+  if (encoded !== VECTOR_B64) fail(`quote handoff: the encoder no longer produces the v1 vector (got ${encoded})`);
+}
+
+if (agreement) {
+  const raw = agreement.fromBase64Url(VECTOR_B64);
+  const fields = raw.split('|');
+  handoffChecks++;
+  if (fields.length !== 15) fail(`agreement: the v1 vector decodes to ${fields.length} fields, expected 15`);
+  if (fields[12] !== '150') fail(`agreement: field 12 of the v1 vector decodes to "${fields[12]}", expected "150"`);
+  fields.forEach((value, i) => {
+    if (value !== VECTOR[i]) fail(`agreement: field ${i} of the v1 vector decodes to "${value}", expected "${VECTOR[i]}"`);
+  });
+
+  const parsed = agreement.parsePayload(VECTOR_B64);
+  if (!parsed) {
+    fail('agreement: the v1 vector does not parse');
+  } else {
+    const sums = agreement.price(parsed);
+    if (sums.deliveryUnknown) fail('agreement: a delivery of 150 is being treated as quoted-by-location');
+    if (sums.total !== VECTOR_TOTAL) fail(`agreement: the v1 vector prices to $${sums.total}, expected $${VECTOR_TOTAL}`);
+    if (sums.deposit !== VECTOR_DEPOSIT) fail(`agreement: the v1 vector deposit is $${sums.deposit}, expected $${VECTOR_DEPOSIT}`);
+    if (sums.balance !== VECTOR_TOTAL - VECTOR_DEPOSIT) fail('agreement: total, deposit and balance do not add up');
+  }
+
+  // Same quote, delivery quoted by location: an itemized subtotal and nothing else.
+  const encodeVector = handoff ? handoff.encode : (f) => Buffer.from(f.join('|'), 'utf8').toString('base64url');
+  const unknown = agreement.parsePayload(encodeVector([...VECTOR.slice(0, 12), '-1', '0', VECTOR[14]]));
+  handoffChecks++;
+  if (!unknown) {
+    fail('agreement: a delivery of -1 is rejected instead of read as quoted-by-location');
+  } else {
+    const sums = agreement.price(unknown);
+    if (sums.deliveryUnknown !== true) fail('agreement: a delivery of -1 is not flagged as quoted-by-location');
+    if (typeof sums.total === 'number') fail(`agreement: a delivery of -1 still produces a total ($${sums.total})`);
+    if (typeof sums.deposit === 'number') fail(`agreement: a delivery of -1 still produces a deposit ($${sums.deposit})`);
+    if (typeof sums.balance === 'number') fail(`agreement: a delivery of -1 still produces a balance ($${sums.balance})`);
+    if (sums.subtotal !== VECTOR_SUBTOTAL) {
+      fail(`agreement: the quoted-by-location subtotal is $${sums.subtotal}, expected $${VECTOR_SUBTOTAL}`);
+    }
+  }
+
+  // Every negative other than the sentinel stays rejected.
+  if (agreement.parsePayload(encodeVector([...VECTOR.slice(0, 12), '-2', '0', VECTOR[14]]))) {
+    fail('agreement: a delivery of -2 parses, so the -1 sentinel is not the only negative accepted');
+  }
+}
+
+// The three packages, built by the page's own encoder and priced by the page's own pricing
+// function, for a one-day rental with free pickup. The expected totals are the prices the
+// packages were signed off with, and they are checked against the /quote/ cards as well.
+const PACKAGE_TOTALS = { 'Party for 60': 180, 'Cookout for 60': 200, 'The Whole Party': 225 };
+const ONE_DAY = {
+  name: 'Maria Gonzalez', phone: '214-555-0142', email: '', address: '1801 N Lamar St', city: 'Dallas TX',
+  date: '2026-09-19', dropoffTiming: 'Morning of the event', pickupTiming: 'Same night after the event',
+  fulfillment: 'Free Pickup',
+};
+
+let pkgChecked = 0;
+if (handoff && agreement) {
+  for (const [name, want] of Object.entries(PACKAGE_TOTALS)) {
+    const hash = handoff.build({ ...ONE_DAY, package: name });
+    const parsed = hash && agreement.parsePayload(hash);
+    if (!parsed) {
+      fail(`quote handoff: the "${name}" package does not build a payload /agreement/ can read`);
+      continue;
+    }
+    const sums = agreement.price(parsed);
+    if (sums.days !== 1) fail(`quote handoff: "${name}" with same-day timings prices ${sums.days} days, expected 1`);
+    if (sums.total !== want) fail(`quote handoff: "${name}" prices to $${sums.total} for one day, expected $${want}`);
+
+    const card = new RegExp(`value="${name}" data-price="(\\d+)"`).exec(quotePage);
+    if (!card) fail(`${QUOTE_PAGE}: no package card for "${name}" to price against`);
+    else if (Number(card[1]) !== want) {
+      fail(`${QUOTE_PAGE}: the "${name}" card reads $${card[1]} but the mapping prices it at $${want}`);
+    }
+    pkgChecked++;
+  }
+
+  // A package plus a la carte items: the quantities stack, the package discount does not change.
+  const stacked = agreement.parsePayload(
+    handoff.build({ ...ONE_DAY, package: 'Party for 60', tables: '2', chairs: '10', coolers: '1', speakers: '0' }),
+  );
+  if (!stacked) fail('quote handoff: a package with extra cart items does not build a readable payload');
+  else {
+    if (stacked.qty.tables !== 12 || stacked.qty.chairs !== 70 || stacked.qty.coolers !== 1) {
+      fail('quote handoff: cart quantities do not stack on top of the package');
+    }
+    if (stacked.discount !== PACKAGE_TOTALS['Party for 60'] && stacked.discount !== 20) {
+      fail(`quote handoff: stacking cart items changed the package discount to ${stacked.discount}`);
+    }
+  }
+
+  // Fulfillment -> the delivery field, including the sentinel.
+  const deliveryOf = (values) => {
+    const hash = handoff.build(values);
+    return hash ? agreement.fromBase64Url(hash).split('|')[12] : null;
+  };
+  if (deliveryOf({ ...ONE_DAY, package: 'Party for 60' }) !== '0') {
+    fail('quote handoff: Free Pickup does not encode a delivery of 0');
+  }
+  if (deliveryOf({ ...ONE_DAY, package: 'Party for 60', fulfillment: 'Delivery & Setup' }) !== '-1') {
+    fail('quote handoff: Delivery & Setup does not encode the -1 quoted-by-location sentinel');
+  }
+
+  // Timings -> the rental window. Written out in full because these four pairs are the whole
+  // contract between a date picker and a signed document.
+  const DATE_CASES = [
+    ['Evening before the event', 'Morning after the event', '2026-09-18T18:00', '2026-09-20T10:00'],
+    ['Morning of the event', 'Same night after the event', '2026-09-19T09:00', '2026-09-19T23:00'],
+    ['Afternoon of the event', 'Next evening', '2026-09-19T14:00', '2026-09-20T18:00'],
+    ['Not sure yet - Ray will confirm', 'Not sure yet - Ray will confirm', '2026-09-19T09:00', '2026-09-20T10:00'],
+  ];
+  for (const [drop, pick, start, end] of DATE_CASES) {
+    const when = handoff.dates('2026-09-19', drop, pick);
+    if (!when) fail(`quote handoff: "${drop}" / "${pick}" builds no rental window`);
+    else if (when.start !== start || when.end !== end) {
+      fail(`quote handoff: "${drop}" / "${pick}" gives ${when.start} to ${when.end}, expected ${start} to ${end}`);
+    }
+  }
+
+  // A date the customer never gave, or one that does not exist, has to fall back to
+  // /thank-you/ rather than ship a link the agreement page cannot open.
+  for (const date of ['', '   ', 'next Saturday', '2026-02-31', '2026-13-01']) {
+    if (handoff.build({ ...ONE_DAY, package: 'Party for 60', date }) !== null) {
+      fail(`quote handoff: the date "${date}" still builds an agreement link`);
+    }
+  }
+  // Nor may a submission with nothing in it become a signable agreement.
+  if (handoff.build({ ...ONE_DAY, package: 'none' }) !== null) {
+    fail('quote handoff: an empty cart still builds an agreement link');
+  }
+  if (handoff.build({ ...ONE_DAY, package: 'Party for 60', name: '', phone: '' }) !== null) {
+    fail('quote handoff: a submission with no name or phone still builds an agreement link');
+  }
+
+  // The quote number and the notes line, as they reach the document.
+  const carried = agreement.fromBase64Url(
+    handoff.build({ ...ONE_DAY, package: 'The Whole Party', fulfillment: 'Delivery & Setup' }),
+  ).split('|');
+  if (carried.length !== 15) {
+    fail(`quote handoff: a built payload decodes to ${carried.length} fields, expected 15`);
+  } else {
+    if (!/^W-[0-9A-Z]{4,14}$/.test(carried[1])) fail(`quote handoff: quote number "${carried[1]}" is not W- plus a short id`);
+    if (carried[14].length > 200) fail(`quote handoff: the notes line is ${carried[14].length} chars, expected under 200`);
+    for (const piece of ['Morning of the event', 'Same night after the event', 'Delivery & Setup']) {
+      if (!carried[14].includes(piece)) fail(`quote handoff: the notes line does not mention "${piece}"`);
+    }
+  }
+  // No field may carry the separator, or the payload silently gains a field and stops parsing.
+  const piped = handoff.build({ ...ONE_DAY, package: 'Party for 60', name: 'Maria | Gonzalez', city: 'Dallas | TX' });
+  if (!piped || agreement.fromBase64Url(piped).split('|').length !== 15) {
+    fail('quote handoff: a pipe typed into a form field survives into the payload');
+  }
+}
+
+// The timing selects live in netlify.toml's sed, the mapping tables live in the fragment. A
+// renamed option would fall through to the "not sure yet" default and quietly ship a rental
+// window nobody picked, so the option values and the mapping keys must be the same set.
+if (handoff) {
+  for (const [name, table] of [['dropoffTiming', handoff.dropoff], ['pickupTiming', handoff.pickup]]) {
+    const block = new RegExp(`<select id="[^"]+" name="${name}">([\\s\\S]*?)</select>`).exec(quotePage);
+    if (!block) {
+      fail(`${QUOTE_PAGE}: no ${name} select to check the timing mapping against`);
+      continue;
+    }
+    const options = [...block[1].matchAll(/<option value="([^"]*)"/g)].map((m) => decode(m[1]));
+    const keys = Object.keys(table);
+    for (const option of options) if (!keys.includes(option)) fail(`quote handoff: ${name} option "${option}" has no mapping`);
+    for (const key of keys) if (!options.includes(key)) fail(`quote handoff: ${name} maps "${key}", which the page no longer offers`);
+  }
+}
+
+// The handoff is a /quote/ treatment only, and it must not have disturbed the Netlify form or
+// the /thank-you/ fallback the failed-POST path depends on.
+const handoffPages = readdirSync(ROOT, { withFileTypes: true, recursive: true })
+  .filter((e) => e.isFile() && e.name.endsWith('.html'))
+  .map((e) => join(e.parentPath ?? e.path, e.name).slice(ROOT.length + 1))
+  .filter((rel) => read(rel).includes('rr-agreement-handoff'))
+  .sort();
+if (handoffPages.length !== 1 || handoffPages[0] !== QUOTE_PAGE) {
+  fail(`the agreement handoff must appear on ${QUOTE_PAGE} only, found on: ${handoffPages.join(', ') || 'nothing'}`);
+}
+for (const needle of [
+  '<form name="quote" method="POST" action="/thank-you/"',
+  '<input type="hidden" name="form-name" value="quote">',
+  "window.location.href = hash ? '/agreement/#q=' + hash : '/thank-you/';",
+  'form.submit();',
+]) {
+  if (!quotePage.includes(needle)) fail(`${QUOTE_PAGE}: the handoff no longer posts as before (missing "${needle}")`);
+}
+
+// --- /agreement/ stays private and makes no claim it cannot keep -----------
+if (!agreementPage.includes('<meta name="robots" content="noindex,nofollow">')) {
+  fail(`${AGREEMENT_PAGE}: no noindex,nofollow`);
+}
+const sitemap = read('sitemap.xml');
+if (sitemap.includes('agreement')) fail('sitemap.xml: /agreement/ must not be listed');
+
+// There is no certificate of insurance, so the document may not mention one -- the same rule
+// the corporate page carries, and for the same reason: it renders perfectly and is untrue.
+const agreementText = decode(
+  agreementPage
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' '),
+).toLowerCase();
+if (agreementText.includes('insur')) fail(`${AGREEMENT_PAGE}: visible text contains "insur"`);
+// Signing is a request to book, not a booking, and the copy has to keep saying so.
+for (const clause of [
+  'It becomes a confirmed booking only when Owner confirms availability and receives the deposit.',
+  'A deposit of 25% of the confirmed total is then due to reserve the date.',
+  'If Owner cannot fulfil the request, no deposit is taken and nothing is owed by either party.',
+]) {
+  if (!decode(agreementPage).includes(clause)) fail(`${AGREEMENT_PAGE}: the agreement no longer says "${clause}"`);
+}
+
 if (problems.length) {
   console.error('assert-new-pages: the new pages are inconsistent with themselves:');
   for (const problem of problems) console.error(`  - ${problem}`);
@@ -390,5 +724,5 @@ if (problems.length) {
 }
 
 console.log(
-  `assert-new-pages: ok, 3 pages, ${rows.length} seating rows agree with the calculator, ${plans.length} package rows agree with /inventory/ pricing, ${checkedRows} corporate setup rows agree with (tables x $${TABLE_RATE}) + (chairs x $${CHAIR_RATE}) + $${DELIVERY}, ${visible.length + corpVisible.length} FAQs agree with their schema, no insurance claim on /corporate-event-rentals/, 1 ItemList site-wide`,
+  `assert-new-pages: ok, 3 pages, ${rows.length} seating rows agree with the calculator, ${plans.length} package rows agree with /inventory/ pricing, ${checkedRows} corporate setup rows agree with (tables x $${TABLE_RATE}) + (chairs x $${CHAIR_RATE}) + $${DELIVERY}, ${visible.length + corpVisible.length} FAQs agree with their schema, no insurance claim on /corporate-event-rentals/, 1 ItemList site-wide, ${handoffChecks} v1 payload checks and ${pkgChecked} package mappings agree between /quote/ and /agreement/`,
 );

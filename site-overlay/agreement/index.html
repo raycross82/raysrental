@@ -64,6 +64,7 @@ gtag('config', 'G-Z6VJLTSTYQ', {page_location: 'https://raysrental.com/agreement
 .ag-items tfoot .ag-total th,.ag-items tfoot .ag-total td{border-top:2px solid var(--navy);padding-top:14px;color:var(--navy);font-family:var(--serif);font-weight:700;font-size:1.35rem}
 .ag-items tfoot .ag-dep th,.ag-items tfoot .ag-dep td{color:var(--blue);font-weight:800;font-size:1.12rem;padding-top:10px}
 .ag-items tfoot .ag-bal th,.ag-items tfoot .ag-bal td{color:var(--ink-soft);font-weight:700}
+.ag-items tfoot td.ag-quoted{white-space:normal;color:var(--ink-soft);font-weight:700;font-size:.9rem;line-height:1.4}
 .ag-depnote{background:var(--blue-tint);border-left:4px solid var(--blue);border-radius:0 10px 10px 0;padding:14px 18px;margin-top:18px;color:var(--navy);font-weight:600;font-size:.97rem}
 
 /* Notes */
@@ -269,9 +270,9 @@ gtag('config', 'G-Z6VJLTSTYQ', {page_location: 'https://raysrental.com/agreement
             <ol>
               <li><b>Parties and Term.</b> This agreement is between Ray's Rentals ("Owner") and the customer named above ("Renter") for the rental period shown above.</li>
               <li><b>Equipment and Charges.</b> Renter rents the equipment itemized above at the rates shown. Charges are per day.</li>
-              <li><b>Deposit.</b> A deposit of 25% of the total is due to reserve the date. The deposit compensates Owner for holding the date and removing the equipment from availability to other customers. The deposit is non-refundable.</li>
+              <li><b>Deposit and Acceptance.</b> Signing this agreement is Renter's request to book. It becomes a confirmed booking only when Owner confirms availability and receives the deposit. Owner will confirm within one business day. A deposit of 25% of the confirmed total is then due to reserve the date. The deposit compensates Owner for holding the date and removing the equipment from availability to other customers, and once paid it is non-refundable.</li>
               <li><b>Balance.</b> The remaining balance is due on delivery, before setup begins.</li>
-              <li><b>Cancellation.</b> If Renter cancels for any reason, the deposit is not refunded. Renter may cancel by notifying Owner at (469) 571-8720.</li>
+              <li><b>Cancellation.</b> Once a deposit is paid the date is reserved and the deposit is not refunded if Renter cancels for any reason. If Owner cannot fulfil the request, no deposit is taken and nothing is owed by either party. Renter may cancel by notifying Owner at (469) 571-8720.</li>
               <li><b>Delivery, Setup and Pickup.</b> Renter must provide clear, safe access to the delivery location and ensure someone 18 or older is present at delivery and pickup. If Owner cannot access the location at the agreed time, or no adult is present, Owner may treat the reservation as cancelled and the deposit is forfeited.</li>
               <li><b>Care and Use.</b> Renter will keep equipment on the property at the address above, use it only for its intended purpose, and not drag, stack unevenly, stand on, modify or sublet it. Equipment must be protected from weather when not in use.</li>
               <li><b>Weather.</b> Outdoor events are Renter's risk. Renter is responsible for securing equipment against wind and rain. Weather is not grounds for a refund of the deposit.</li>
@@ -358,7 +359,7 @@ gtag('config', 'G-Z6VJLTSTYQ', {page_location: 'https://raysrental.com/agreement
             </div>
             <h2 id="ag-done-h"></h2>
             <p class="ag-sub" id="ag-done-sub"></p>
-            <div class="ag-money">
+            <div class="ag-money" id="ag-money">
               <p class="ag-mtop">Deposit due to reserve your date</p>
               <p class="ag-mamt" id="ag-done-dep"></p>
               <p id="ag-done-pay"></p>
@@ -444,7 +445,17 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
 <script>
 /* /agreement/ — reads the quote out of the URL hash, prices it here, and collects the signature.
    Nothing on this page trusts a total from the link: only the raw inputs are read out of the
-   payload and every figure below is recomputed, so a hand-edited link cannot change what is owed. */
+   payload and every figure below is recomputed, so a hand-edited link cannot change what is owed.
+
+   Field 12 (delivery) carries -1 as a sentinel meaning "delivery and setup, quoted by location".
+   That path shows the itemized lines and an equipment subtotal, states that Ray will confirm the
+   delivery charge, and deliberately shows no final total and no dollar deposit -- the renter can
+   still sign, but nothing is owed until Ray confirms the figure. A delivery of 0 or more prices
+   through to a total, deposit and balance exactly as it always has.
+
+   window.rrAgreement exposes the decoder and the pricing function so scripts/assert-new-pages.mjs
+   can check both paths against this page's own arithmetic rather than a copy of it. */
+/* rr-agreement:start */
 (function(){
   'use strict';
 
@@ -493,6 +504,11 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     var n = parseFloat(s);
     return n >= 0 ? n : null;
   };
+  // Delivery is the one field allowed to be negative, and only as the exact sentinel -1:
+  // "quoted by location, Ray will confirm". Every other negative is still rejected, so a
+  // hand-edited link cannot discount itself through the delivery line.
+  var UNKNOWN = -1;
+  var deliveryOf = function(s){ return s === '-1' ? UNKNOWN : money(s); };
 
   function parsePayload(raw){
     var decoded;
@@ -510,7 +526,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
       q[ORDER[i]] = int(f[8 + i]);
       if (q[ORDER[i]] === null) return null;
     }
-    var delivery = money(f[12]);
+    var delivery = deliveryOf(f[12]);
     var discount = money(f[13]);
     if (delivery === null || discount === null) return null;
 
@@ -543,9 +559,16 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
       subtotal += amount;
       lines.push({key:key, label:LABELS[key], qty:qty, rate:RATES[key], days:days, amount:amount});
     });
+    // Delivery quoted by location: there is no total to state yet, so none is produced. Null
+    // rather than 0 so nothing downstream can format it as a figure the renter might owe.
+    if (quote.delivery === UNKNOWN) {
+      return {days:days, lines:lines, subtotal:subtotal, deliveryUnknown:true,
+              total:null, deposit:null, balance:null};
+    }
     var total   = subtotal + quote.delivery - quote.discount;
     var deposit = Math.round(total * 0.25);
-    return {days:days, lines:lines, subtotal:subtotal, total:total, deposit:deposit, balance:total - deposit};
+    return {days:days, lines:lines, subtotal:subtotal, deliveryUnknown:false,
+            total:total, deposit:deposit, balance:total - deposit};
   }
 
   var fmt = function(n){
@@ -569,6 +592,13 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
 
   /* ---------- render ---------- */
 
+  // The decoder and the pricing function, exposed for the build assertions. Nothing on the
+  // page calls these through the window object.
+  window.rrAgreement = {
+    fromBase64Url: fromBase64Url, parsePayload: parsePayload, price: price,
+    daysBetween: daysBetween, rates: RATES, unknownDelivery: UNKNOWN, version: VERSION
+  };
+
   var today = new Date();
   text('ag-h-today', MOFULL[today.getMonth()] + ' ' + today.getDate() + ', ' + today.getFullYear());
 
@@ -585,7 +615,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     return el;
   }
 
-  function footRow(cls, label, value){
+  function footRow(cls, label, value, valueCls){
     var tr = document.createElement('tr');
     tr.className = cls;
     var th = document.createElement('th');
@@ -593,6 +623,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     th.setAttribute('colspan', '4');
     th.textContent = label;
     var td = document.createElement('td');
+    if (valueCls) td.className = valueCls;
     td.textContent = value;
     tr.appendChild(th);
     tr.appendChild(td);
@@ -649,24 +680,36 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
 
     var foot = $('ag-foot');
     foot.textContent = '';
-    foot.appendChild(footRow('ag-sub', 'Subtotal', fmt(sums.subtotal)));
-    foot.appendChild(footRow('', 'Delivery & setup', fmt(q.delivery)));
-    if (q.discount > 0) foot.appendChild(footRow('', 'Discount', '-' + fmt(q.discount)));
-    foot.appendChild(footRow('ag-total', 'Total', fmt(sums.total)));
-    foot.appendChild(footRow('ag-dep', 'Deposit due (25%)', fmt(sums.deposit)));
-    foot.appendChild(footRow('ag-bal', 'Balance on delivery', fmt(sums.balance)));
-
-    text('ag-depnote', '25% deposit reserves your date. Balance of ' + fmt(sums.balance) + ' due on delivery.');
+    if (sums.deliveryUnknown) {
+      foot.appendChild(footRow('ag-sub', 'Equipment subtotal', fmt(sums.subtotal)));
+      foot.appendChild(footRow('', 'Delivery & setup', '— quoted by location, Ray will confirm', 'ag-quoted'));
+      if (q.discount > 0) foot.appendChild(footRow('', 'Discount', '-' + fmt(q.discount)));
+      text('ag-depnote', 'Your final total and 25% deposit will be confirmed by Ray before anything is due.');
+    } else {
+      foot.appendChild(footRow('ag-sub', 'Subtotal', fmt(sums.subtotal)));
+      foot.appendChild(footRow('', 'Delivery & setup', fmt(q.delivery)));
+      if (q.discount > 0) foot.appendChild(footRow('', 'Discount', '-' + fmt(q.discount)));
+      foot.appendChild(footRow('ag-total', 'Total', fmt(sums.total)));
+      foot.appendChild(footRow('ag-dep', 'Deposit due (25%)', fmt(sums.deposit)));
+      foot.appendChild(footRow('ag-bal', 'Balance on delivery', fmt(sums.balance)));
+      text('ag-depnote', '25% deposit reserves your date. Balance of ' + fmt(sums.balance) + ' due on delivery.');
+    }
 
     // Hidden fields carry the figures this page computed, so what Ray receives is what the
-    // renter saw and signed.
+    // renter saw and signed. On the quoted-by-location path there is no total to send, and
+    // "To be confirmed" is sent in its place rather than a number nobody agreed to.
+    var pending = 'To be confirmed';
     var fields = {
       quote_number: q.quote, customer_name: q.name, phone: q.phone, email: q.email,
       address: q.address, event_start: q.start, event_end: q.end, days: String(sums.days),
       tables: String(q.qty.tables), chairs: String(q.qty.chairs), coolers: String(q.qty.coolers),
-      speakers: String(q.qty.speakers), delivery_setup: String(q.delivery), discount: String(q.discount),
-      subtotal: String(sums.subtotal), total: String(sums.total), deposit: String(sums.deposit),
-      balance: String(sums.balance), notes: q.notes, agreement_version: VERSION,
+      speakers: String(q.qty.speakers), discount: String(q.discount),
+      delivery_setup: sums.deliveryUnknown ? 'Quoted by location' : String(q.delivery),
+      subtotal: String(sums.subtotal),
+      total:    sums.deliveryUnknown ? pending : String(sums.total),
+      deposit:  sums.deliveryUnknown ? pending : String(sums.deposit),
+      balance:  sums.deliveryUnknown ? pending : String(sums.balance),
+      notes: q.notes, agreement_version: VERSION,
       user_agent: navigator.userAgent
     };
     Object.keys(fields).forEach(function(k){ var el = $('f-' + k); if (el) el.value = fields[k]; });
@@ -837,10 +880,17 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
   function done(name, signedAt, png){
     var first = name.split(/\s+/)[0] || name;
     text('ag-done-h', 'Signed — thank you, ' + first + '!');
-    text('ag-done-sub', 'Your agreement for ' + quote.quote + ' is on its way to Ray.');
-    text('ag-done-dep', fmt(sums.deposit));
-    text('ag-done-pay', 'Ray will text a payment link to ' + quote.phone + ' shortly. Your date is held once the deposit is received.');
-    text('ag-done-bal', 'Remaining balance of ' + fmt(sums.balance) + ' is due on delivery.');
+    // Nothing here says the booking is confirmed or the date held: it is not either, until
+    // Ray confirms availability and the deposit arrives.
+    text('ag-done-sub', 'Ray will confirm your dates and send a payment link for the deposit. Your date is reserved once the deposit is received.');
+    if (sums.deliveryUnknown) {
+      $('ag-money').hidden = true;
+      text('ag-done-bal', 'Your final total and 25% deposit will be confirmed by Ray before anything is due.');
+    } else {
+      text('ag-done-dep', fmt(sums.deposit));
+      text('ag-done-pay', 'Ray will send the payment link to ' + quote.phone + '.');
+      text('ag-done-bal', 'Remaining balance of ' + fmt(sums.balance) + ' is due on delivery.');
+    }
     text('ag-rec-name', 'Signed by ' + name);
     text('ag-rec-when', 'Signed ' + friendly(
       signedAt.slice(0, 4) + '-' + signedAt.slice(5, 7) + '-' + signedAt.slice(8, 10) + 'T' + signedAt.slice(11, 16)
@@ -870,6 +920,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
   boot();
   window.addEventListener('hashchange', function(){ if (!sending && form.hidden === false) boot(); });
 })();
+/* rr-agreement:end */
 </script>
 </body>
 </html>
