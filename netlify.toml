@@ -149,8 +149,11 @@
 # where that block goes and claiming coverage we do not have is the one error on this page that
 # would be worse than a wrong price. It also asserts the page carries no ItemList, Product or
 # Offer node anywhere in its graph, since /inventory/ owns the only product entity on this site.
-# Generate Quote is not part of this public site. It lives only in hq/netlify.toml,
-# which is the config for https://rays-rentals-hq.netlify.app/ (base directory hq).
+# Generate Quote is not part of this public site (Netlify project "raysrentals",
+# site id 024d7ffb-a618-48f2-8633-87100e46fad9, https://raysrental.com).
+# It lives only in hq/netlify.toml for https://rays-rentals-hq.netlify.app/.
+# That HQ project is a separate Netlify site. It is not built by this file, and
+# merging this repo does not publish it until the HQ site's base directory is hq.
 # scripts/assert-generate-quote.mjs fails this public build if /admin, the quote
 # generator, or the quote-number function shows up in out/.
 #

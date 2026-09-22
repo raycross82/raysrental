@@ -1,11 +1,35 @@
-# Rentals HQ — https://rays-rentals-hq.netlify.app/
+# Rentals HQ — staff app
+#   https://rays-rentals-hq.netlify.app/
+#   https://main--rays-rentals-hq.netlify.app/
 #
-# This is the only Netlify site that publishes Generate Quote.
-# In the Netlify UI for rays-rentals-hq, set the base directory to `hq`.
-# The public marketing site (raysrental.com) uses the repo-root netlify.toml
-# and must not publish this page, these assets, or the quote-number function.
+# This file is the Netlify config for that site only. Staff open Generate Quote
+# at /quote/ (the tracker header and Quotes tab link here). There is no /admin/
+# on this site.
 #
-# Staff open Generate Quote at /quote/ on this site.
+# Verified mapping (2026-09-22):
+#   Public marketing site "raysrentals"
+#     id 024d7ffb-a618-48f2-8633-87100e46fad9
+#     https://raysrental.com and https://main--raysrentals.netlify.app
+#     repo https://github.com/raycross82/raysrental, production branch main
+#     config: repo-root netlify.toml, publish directory "out"
+#     PR #20 deploy preview does NOT serve /admin/ or admin-quote.js
+#   HQ site "rays-rentals-hq"
+#     production is still the single-file Business Tracker (no /quote/ yet)
+#     this pull request has no deploy-preview on rays-rentals-hq
+#     so merging the PR rebuilds only the public site
+#
+# What has to change in the Netlify UI (this cannot be set from the repo):
+#   Site configuration → Build & deploy → rays-rentals-hq
+#     Repository: raycross82/raysrental
+#     Production branch: main
+#     Base directory: hq
+#     Build command: node ../scripts/assert-generate-quote.mjs
+#     Publish directory: public
+#     Functions directory: netlify/functions
+#   Do not point rays-rentals-hq at the repo root. That build publishes the
+#   marketing site and would replace the Business Tracker.
+#   After that link exists, merging to main deploys Generate Quote to
+#   https://rays-rentals-hq.netlify.app/quote/
 
 [build]
   publish = "public"
