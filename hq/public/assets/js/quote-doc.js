@@ -1,6 +1,6 @@
 // Fillable Rays Rentals customer-quote document.
 //
-// Shared by the staff page (/admin/), the quote-number Netlify Function, and
+// Shared by Rentals HQ (/quote/), the quote-number Netlify Function, and
 // scripts/assert-generate-quote.mjs. No DOM, no network, no storage — callers
 // pass the order in and get priced figures plus a self-contained HTML document
 // back. Artwork is injected as URLs or data URIs so a downloaded quote still
@@ -14,19 +14,103 @@ export const QUOTE_EMAIL = 'raysrentals1@gmail.com';
 export const QUOTE_WEB = 'raysrental.com';
 
 export const RATES = {
+  tableSet: 2000,
+  tableSetAlt: 1800,
+  tablecloth: 300,
+  runner: 200,
   table: 800,
   chair: 200,
   speaker: 3000,
   cooler: 1200,
+  ice: 300,
 };
 
 export const QUOTE_ASSETS = {
   mark: '/assets/img/quote/mark.png',
   table: '/assets/img/quote/item-table.jpg',
+  tablecloth: '/assets/img/quote/item-tablecloth.jpg',
+  runner: '/assets/img/quote/item-runner.jpg',
   chair: '/assets/img/quote/item-chair.jpg',
   cooler: '/assets/img/quote/item-cooler.jpg',
   speaker: '/assets/img/quote/item-speaker.jpg',
+  ice: '/assets/img/quote/item-ice.jpg',
 };
+
+// Saved rental catalog. Generated quotes use these names, photos, and default
+// rates. Staff can change the rate on a quote (the 6' table set is $20 here;
+// some earlier quotes used $18, kept as altRateCents). The cooler is free
+// when the other items total $50 or more; extra coolers use rateCents.
+export const CATALOG = [
+  {
+    id: 'table-set',
+    name: "6' Table Set",
+    detail: '1 Table + 6 Chairs',
+    rateCents: RATES.tableSet,
+    altRateCents: RATES.tableSetAlt,
+    image: 'table',
+    qtyUnit: 'Sets',
+    max: 80,
+  },
+  {
+    id: 'tablecloth',
+    name: 'White Table Cloths',
+    detail: '',
+    rateCents: RATES.tablecloth,
+    image: 'tablecloth',
+    max: 300,
+  },
+  {
+    id: 'runner',
+    name: 'Table Runners',
+    detail: '',
+    rateCents: RATES.runner,
+    image: 'runner',
+    max: 300,
+  },
+  {
+    id: 'table',
+    name: 'Folding Table',
+    detail: '6 ft rectangular',
+    rateCents: RATES.table,
+    image: 'table',
+    max: 200,
+  },
+  {
+    id: 'chair',
+    name: 'Folding Chair',
+    detail: 'White resin',
+    rateCents: RATES.chair,
+    image: 'chair',
+    max: 600,
+  },
+  {
+    id: 'speaker',
+    name: 'JBL PartyBox 110',
+    detail: '',
+    rateCents: RATES.speaker,
+    image: 'speaker',
+    max: 6,
+  },
+  {
+    id: 'cooler',
+    name: 'Cooler',
+    detail: 'Free on orders $50+',
+    rateCents: RATES.cooler,
+    image: 'cooler',
+    max: 20,
+    cooler: true,
+  },
+  {
+    id: 'ice',
+    name: 'Bags of Ice',
+    detail: '',
+    rateCents: RATES.ice,
+    image: 'ice',
+    max: 80,
+  },
+];
+
+export const CATALOG_BY_ID = Object.fromEntries(CATALOG.map((item) => [item.id, item]));
 
 // The order used to check the document against the attached LaToya quote.
 export const SAMPLE_ORDER = {
@@ -172,67 +256,106 @@ function esc(value) {
     .replace(/'/g, '&#39;');
 }
 
-function catalogLine(image, name, detail, qty, rateCents) {
+function catalogLine(image, name, detail, qty, rateCents, qtyUnit) {
   return {
     image,
     name,
     subs: detail ? [{ text: detail, free: false }] : [],
     qty,
+    qtyUnit: qtyUnit || '',
     rateText: formatMoney(rateCents),
     totalText: formatMoney(qty * rateCents),
     free: false,
   };
 }
 
-export function priceOrder(input = {}) {
-  const tables = qtyOf(input.tables, 200);
-  const chairs = qtyOf(input.chairs, 600);
-  const speakers = qtyOf(input.speakers, 6);
-  const coolers = qtyOf(input.coolers, 20);
-  const lines = [];
+function lineRateCents(item, raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return item.rateCents;
+  return Math.max(0, dollarsToCents(text));
+}
 
-  if (tables) lines.push(catalogLine('table', 'Folding Table', '6 ft rectangular', tables, RATES.table));
-  if (chairs) lines.push(catalogLine('chair', 'Folding Chair', 'White resin', chairs, RATES.chair));
-  if (speakers) lines.push(catalogLine('speaker', 'JBL PartyBox 110', '', speakers, RATES.speaker));
+function freeCoolerLine() {
+  return {
+    image: 'cooler',
+    name: 'Cooler',
+    subs: [
+      { text: '(FREE)', free: true },
+      { text: 'Included with orders $50+', free: false },
+    ],
+    qty: 1,
+    qtyUnit: '',
+    rateText: 'FREE',
+    totalText: '$0.00',
+    free: true,
+  };
+}
 
-  const custom = Array.isArray(input.custom) ? input.custom : [];
-  let customCents = 0;
-  for (const row of custom) {
-    const name = cleanText(row && row.name);
-    const q = qtyOf(row && row.qty, 999);
-    const rate = Math.max(0, dollarsToCents(row && row.rate));
-    if (!name || !q) continue;
-    const detail = cleanText(row && row.detail);
-    customCents += q * rate;
-    lines.push(catalogLine(null, name, detail, q, rate));
-  }
-
-  const qualifyingCents = tables * RATES.table + chairs * RATES.chair + speakers * RATES.speaker + customCents;
-  const wantFree = input.includeFreeCooler !== false && qualifyingCents >= FREE_COOLER_CENTS;
+// Inserts the free cooler (and any paid extras) and returns cents charged for coolers.
+function appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree) {
+  const wantFree = includeFree && qualifyingCents >= FREE_COOLER_CENTS;
   let paidCoolers = coolers;
   let showPromo = false;
   if (wantFree) {
     showPromo = true;
-    const shown = Math.max(coolers, 1);
-    paidCoolers = shown - 1;
-    lines.push({
-      image: 'cooler',
-      name: 'Cooler',
-      subs: [
-        { text: '(FREE)', free: true },
-        { text: 'Included with orders $50+', free: false },
-      ],
-      qty: 1,
-      rateText: 'FREE',
-      totalText: '$0.00',
-      free: true,
-    });
+    paidCoolers = Math.max(coolers, 1) - 1;
+    lines.push(freeCoolerLine());
   }
   if (paidCoolers) {
-    lines.push(catalogLine('cooler', 'Cooler', 'Holds ice + drinks', paidCoolers, RATES.cooler));
+    lines.push(catalogLine('cooler', 'Cooler', 'Holds ice + drinks', paidCoolers, coolerRate));
+  }
+  return { showPromo, coolerCents: paidCoolers * coolerRate };
+}
+
+export function priceOrder(input = {}) {
+  const lines = [];
+  let qualifyingCents = 0;
+  let showPromo = false;
+  let coolerCents = 0;
+  const includeFree = input.includeFreeCooler !== false;
+
+  if (Array.isArray(input.items)) {
+    let coolers = 0;
+    let coolerRate = RATES.cooler;
+    const pending = [];
+    for (const row of input.items) {
+      const item = CATALOG_BY_ID[row && row.id];
+      if (!item) continue;
+      const q = qtyOf(row && row.qty, item.max || 999);
+      if (item.cooler) {
+        coolers = q;
+        coolerRate = lineRateCents(item, row && row.rate);
+        continue;
+      }
+      if (!q) continue;
+      const rate = lineRateCents(item, row && row.rate);
+      qualifyingCents += q * rate;
+      pending.push(catalogLine(item.image, item.name, item.detail, q, rate, item.qtyUnit));
+    }
+    // Cooler sits where the catalog lists it: after the speaker, before ice.
+    const coolerAt = pending.findIndex((line) => line.image === 'ice');
+    const head = coolerAt === -1 ? pending : pending.slice(0, coolerAt);
+    const tail = coolerAt === -1 ? [] : pending.slice(coolerAt);
+    lines.push(...head);
+    const cooler = appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree);
+    showPromo = cooler.showPromo;
+    coolerCents = cooler.coolerCents;
+    lines.push(...tail);
+  } else {
+    const tables = qtyOf(input.tables, 200);
+    const chairs = qtyOf(input.chairs, 600);
+    const speakers = qtyOf(input.speakers, 6);
+    const coolers = qtyOf(input.coolers, 20);
+    if (tables) lines.push(catalogLine('table', 'Folding Table', '6 ft rectangular', tables, RATES.table));
+    if (chairs) lines.push(catalogLine('chair', 'Folding Chair', 'White resin', chairs, RATES.chair));
+    if (speakers) lines.push(catalogLine('speaker', 'JBL PartyBox 110', '', speakers, RATES.speaker));
+    qualifyingCents = tables * RATES.table + chairs * RATES.chair + speakers * RATES.speaker;
+    const cooler = appendCoolers(lines, coolers, RATES.cooler, qualifyingCents, includeFree);
+    showPromo = cooler.showPromo;
+    coolerCents = cooler.coolerCents;
   }
 
-  const subtotalCents = qualifyingCents + paidCoolers * RATES.cooler;
+  const subtotalCents = qualifyingCents + coolerCents;
   const deliveryCents = Math.max(0, dollarsToCents(input.delivery));
   const setupCents = Math.max(0, dollarsToCents(input.setup));
   const discountCents = Math.min(
@@ -242,10 +365,12 @@ export function priceOrder(input = {}) {
   const totalCents = subtotalCents + deliveryCents + setupCents - discountCents;
   const depositCents = Math.round(totalCents * DEPOSIT_PERCENT / 100);
   const balanceCents = totalCents - depositCents;
+  const serviceType = cleanText(input.serviceType) || 'Delivery & Setup';
+  const deliveryIncluded = serviceType === 'Free Delivery & Pickup' && deliveryCents === 0;
 
   const summaryRows = [
     { label: 'Subtotal', value: formatMoney(subtotalCents) },
-    { label: 'Delivery', value: formatMoney(deliveryCents) },
+    { label: 'Delivery', value: deliveryIncluded ? 'Included' : formatMoney(deliveryCents) },
     { label: 'Setup / Teardown', value: formatMoney(setupCents) },
   ];
   if (discountCents > 0) summaryRows.push({ label: 'Discount', value: formatMoney(-discountCents) });
@@ -261,9 +386,10 @@ export function priceOrder(input = {}) {
     rentalDate,
     dropoff: cleanText(input.dropoff) || 'Evening before the event',
     pickup: cleanText(input.pickup) || 'Morning after the event',
-    serviceType: cleanText(input.serviceType) || 'Delivery & Setup',
+    serviceType,
     lines,
     showPromo,
+    deliveryIncluded,
     paymentUrl,
     summaryRows,
     subtotalCents,
@@ -297,7 +423,10 @@ function itemRows(lines, assets) {
       : '<span class="item-thumb item-thumb-empty" aria-hidden="true"></span>';
     const subs = line.subs.map((sub) => `<div class="item-sub${sub.free ? ' free-sub' : ''}">${esc(sub.text)}</div>`).join('');
     const free = line.free ? ' free' : '';
-    return `<tr><td><div class="item-cell">${thumb}<div><div class="item-name">${esc(line.name)}</div>${subs}</div></div></td><td class="qty">${esc(line.qty)}</td><td class="rate${free}">${esc(line.rateText)}</td><td class="total${free}">${esc(line.totalText)}</td></tr>`;
+    const qty = line.qtyUnit
+      ? `${esc(line.qty)}<div class="qty-unit">${esc(line.qtyUnit)}</div>`
+      : esc(line.qty);
+    return `<tr><td><div class="item-cell">${thumb}<div><div class="item-name">${esc(line.name)}</div>${subs}</div></div></td><td class="qty">${qty}</td><td class="rate${free}">${esc(line.rateText)}</td><td class="total${free}">${esc(line.totalText)}</td></tr>`;
   }).join('');
 }
 
@@ -383,6 +512,7 @@ const QUOTE_CSS = `
   .item-sub { font-size: 9px; font-weight: 400; color: #555; margin-top: 1px; }
   .item-sub.free-sub { font-style: italic; color: #002060; font-weight: 500; }
   .qty, .rate { text-align: center; font-weight: 500; }
+  .qty-unit { display: block; font-size: 8px; font-weight: 700; letter-spacing: 0.04em; color: #002060; margin-top: 1px; }
   .total { text-align: right; font-weight: 600; }
   .free { color: #008000 !important; font-weight: 800 !important; }
   .delivery-row { display: flex; align-items: stretch; border: 1px solid #c8d0e0; border-top: none; }
@@ -458,7 +588,7 @@ export function renderQuoteDocument(priced, options = {}) {
     ? `<div class="promo-box"><img src="${esc(assets.cooler)}" alt=""><div class="promo-text">1 FREE COOLER INCLUDED!</div></div>`
     : '';
   const payCta = priced.paymentUrl
-    ? `<a class="pay-cta" href="${esc(priced.paymentUrl)}" target="_blank" rel="noopener noreferrer">Pay deposit with Square</a><div class="pay-cta-note">Opens Square to pay the ${DEPOSIT_PERCENT}% deposit of ${esc(formatMoney(priced.depositCents))}.</div>`
+    ? `<a class="pay-cta" href="${esc(priced.paymentUrl)}" target="_blank" rel="noopener noreferrer">Pay deposit here</a><div class="pay-cta-note">Opens Square to pay the ${DEPOSIT_PERCENT}% deposit of ${esc(formatMoney(priced.depositCents))}.</div>`
     : '';
 
   return `<!DOCTYPE html>
@@ -532,7 +662,7 @@ export function renderQuoteDocument(priced, options = {}) {
       <thead><tr><th>Item</th><th class="qty">Qty</th><th class="rate">Rate</th><th class="total">Total</th></tr></thead>
       <tbody>${itemRows(priced.lines, assets)}</tbody>
     </table>
-    <div class="delivery-row"><div class="left">${TRUCK_ICON}DELIVERY &amp; PICKUP</div><div class="price">${esc(formatMoney(priced.deliveryCents))}</div></div>
+    <div class="delivery-row"><div class="left">${TRUCK_ICON}${priced.deliveryIncluded ? 'FREE DELIVERY &amp; PICKUP' : 'DELIVERY &amp; PICKUP'}</div><div class="price${priced.deliveryIncluded ? ' free' : ''}">${priced.deliveryIncluded ? 'INCLUDED' : esc(formatMoney(priced.deliveryCents))}</div></div>
   </div>
   <div class="bottom">
     <div class="left-col">

@@ -1,19 +1,21 @@
 // Build-time checks for Generate Quote.
 //
-// The staff page at /admin/ prices an order and fills the customer-quote HTML.
-// A wrong total here is a number Ray would hand a customer, so the LaToya sample
-// (4 tables, 25 chairs, 1 speaker, free cooler, $20 delivery, $25 setup) is
-// priced by the same module the page uses and checked to the cent. The quote
-// number sequence is checked the same way: RR-MMDD-## increments inside one
-// Chicago calendar day and starts over on the next day.
+// The branded quote lives only on Rentals HQ (hq/, published by the
+// rays-rentals-hq Netlify site). The public marketing build (out/) must not
+// contain the staff page, its script, its artwork, or the quote-number function.
 //
-// /admin/ is unlisted. It must stay noindex and out of the sitemap, the way
-// /agreement/ does, and it must not carry the public quote bar or the
-// agreement handoff.
+// The LaToya sample (4 tables, 25 chairs, 1 speaker, free cooler, $20 delivery,
+// $25 setup) is priced by the same module the HQ page uses and checked to the
+// cent. Quote numbers are RR-MMDD-## inside one Chicago calendar day.
 
-import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { chdir } from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+chdir(join(dirname(fileURLToPath(import.meta.url)), '..'));
 import {
+  CATALOG,
   SAMPLE_ORDER,
   addDays,
   allocateSeq,
@@ -23,35 +25,68 @@ import {
   priceOrder,
   renderQuoteDocument,
   sanitizePaymentUrl,
-} from '../out/assets/js/quote-doc.js';
-import { assignQuoteNumber } from '../netlify/functions/quote-number.mjs';
+} from '../hq/public/assets/js/quote-doc.js';
+import { assignQuoteNumber } from '../hq/netlify/functions/quote-number.mjs';
 
 const problems = [];
 const fail = (msg) => problems.push(msg);
 
-const page = readFileSync('out/admin/index.html', 'utf8');
-if (!page.includes('<meta name="robots" content="noindex,nofollow">')) fail('admin: missing noindex,nofollow');
-if (!page.includes('id="generate-quote"')) fail('admin: Generate Quote button is missing');
-if (!page.includes('>Generate Quote<')) fail('admin: button is not labeled Generate Quote');
-if (!page.includes('src="/assets/js/admin-quote.js?v=3"')) fail('admin: page script is missing');
-if (!page.includes('id="i-include-square"')) fail('admin: Square payment checkbox is missing');
-if (!page.includes('Include Square payment link')) fail('admin: Square payment label is missing');
-if (!page.includes('id="i-square-url"')) fail('admin: Square payment URL field is missing');
-if (!page.includes('id="square-fields"')) fail('admin: Square payment field wrap is missing');
-if (page.includes('rr-qbar') || page.includes('rr-agreement-handoff')) {
-  fail('admin: the public quote bar or agreement handoff leaked onto the staff page');
+if (existsSync('out/admin') || existsSync('site-overlay/admin')) fail('public site still has /admin');
+if (existsSync('out/assets/js/quote-doc.js') || existsSync('out/assets/js/admin-quote.js')) {
+  fail('public site still publishes the quote generator scripts');
 }
-const sitemap = readFileSync('out/sitemap.xml', 'utf8');
-if (sitemap.includes('/admin')) fail('sitemap.xml: /admin/ must not be listed');
+if (existsSync('out/assets/img/quote') || existsSync('netlify/functions')) {
+  fail('public site still publishes quote artwork or the quote-number function');
+}
+function walk(dir) {
+  for (const name of readdirSync(dir)) {
+    const rel = join(dir, name);
+    if (statSync(rel).isDirectory()) walk(rel);
+    else if (name.endsWith('.html') || name.endsWith('.js') || name.endsWith('.mjs')) {
+      const text = readFileSync(rel, 'utf8');
+      if (text.includes('id="generate-quote"') || text.includes('Pay deposit here') || text.includes('admin-quote.js')) {
+        fail(`public publish still contains Generate Quote (${rel})`);
+      }
+    }
+  }
+}
+if (existsSync('out')) {
+  walk('out');
+  const sitemap = readFileSync('out/sitemap.xml', 'utf8');
+  if (sitemap.includes('/admin')) fail('sitemap.xml: /admin/ must not be listed');
+}
+
+const page = readFileSync('hq/public/quote/index.html', 'utf8');
+const tracker = readFileSync('hq/public/index.html', 'utf8');
+if (!page.includes('<meta name="robots" content="noindex,nofollow">')) fail('hq quote: missing noindex,nofollow');
+if (!page.includes('id="generate-quote"')) fail('hq quote: Generate Quote button is missing');
+if (!page.includes('>Generate Quote<')) fail('hq quote: button is not labeled Generate Quote');
+if (!page.includes('src="/assets/js/admin-quote.js?v=4"')) fail('hq quote: page script is missing');
+if (!page.includes('id="catalog-lines"')) fail('hq quote: catalog picker is missing');
+if (!page.includes('Free Delivery &amp; Pickup')) fail('hq quote: Free Delivery & Pickup service is missing');
+if (!page.includes('Pay deposit here')) fail('hq quote: payment helper still uses the old Square label');
+if (page.includes('id="add-line"') || page.includes('Add a line')) fail('hq quote: free-typed item lines are still offered');
+if (!page.includes('id="i-include-square"')) fail('hq quote: Square payment checkbox is missing');
+if (!page.includes('Include Square payment link')) fail('hq quote: Square payment label is missing');
+if (!page.includes('id="i-square-url"')) fail('hq quote: Square payment URL field is missing');
+if (!page.includes('id="square-fields"')) fail('hq quote: Square payment field wrap is missing');
+if (!page.includes('href="/"')) fail('hq quote: missing link back to the tracker');
+if (page.includes('rr-qbar') || page.includes('rr-agreement-handoff')) {
+  fail('hq quote: the public quote bar or agreement handoff leaked onto the staff page');
+}
+if (!tracker.includes('href="/quote/"')) fail('hq tracker: Generate Quote link is missing');
 
 for (const rel of [
-  'out/assets/img/quote/mark.png',
-  'out/assets/img/quote/item-table.jpg',
-  'out/assets/img/quote/item-chair.jpg',
-  'out/assets/img/quote/item-cooler.jpg',
-  'out/assets/img/quote/item-speaker.jpg',
-  'out/assets/js/vendor/html2canvas.min.js',
-  'out/assets/js/vendor/jspdf.umd.min.js',
+  'hq/public/assets/img/quote/mark.png',
+  'hq/public/assets/img/quote/item-table.jpg',
+  'hq/public/assets/img/quote/item-tablecloth.jpg',
+  'hq/public/assets/img/quote/item-runner.jpg',
+  'hq/public/assets/img/quote/item-chair.jpg',
+  'hq/public/assets/img/quote/item-cooler.jpg',
+  'hq/public/assets/img/quote/item-speaker.jpg',
+  'hq/public/assets/img/quote/item-ice.jpg',
+  'hq/public/assets/js/vendor/html2canvas.min.js',
+  'hq/public/assets/js/vendor/jspdf.umd.min.js',
 ]) {
   const size = statSync(rel).size;
   if (size < 1000) fail(`${rel} is too small (${size} bytes)`);
@@ -121,7 +156,7 @@ for (const needle of [
   if (!html.includes(needle)) fail(`quote document is missing "${needle}"`);
 }
 if (/945/.test(html)) fail('quote document still contains the retired 945 phone number');
-if (html.includes('Pay deposit with Square') || html.includes('class="pay-cta"')) {
+if (html.includes('Pay deposit here') || html.includes('Pay deposit with Square') || html.includes('class="pay-cta"')) {
   fail('sample quote without Square still shows a payment CTA');
 }
 if (!html.includes('>—<') && !html.includes('>— </')) {
@@ -139,7 +174,8 @@ if (withPay.paymentUrl !== squareUrl) fail(`Square URL was not kept (got ${withP
 const payHtml = renderQuoteDocument(withPay, { quoteNumber: 'RR-0917-03', quoteDate: '2026-09-17' });
 if (!payHtml.includes('class="pay-cta"')) fail('quote with Square is missing the pay CTA');
 if (!payHtml.includes(`href="${squareUrl}"`)) fail('Square CTA does not link to the pasted URL');
-if (!payHtml.includes('Pay deposit with Square')) fail('Square CTA label is missing');
+if (!payHtml.includes('>Pay deposit here<')) fail('Square CTA label is missing');
+if (payHtml.includes('Pay deposit with Square')) fail('Square CTA still uses the old label');
 if (!payHtml.includes('target="_blank"') || !payHtml.includes('rel="noopener noreferrer"')) {
   fail('Square CTA must open in a new tab with noopener');
 }
@@ -181,18 +217,84 @@ if (!edge.showPromo || edge.subtotalCents !== 5000) fail('a $50 item subtotal sh
 const optedOut = priceOrder({ chairs: 25, coolers: 1, includeFreeCooler: false });
 if (optedOut.showPromo || optedOut.subtotalCents !== 6200) fail('opting out of the free cooler should charge $12');
 
-const custom = priceOrder({
-  custom: [
-    { name: "6' Table Set", detail: '1 Table + 6 Chairs', qty: 6, rate: 20 },
-    { name: 'Bags of Ice', detail: '', qty: 6, rate: 3 },
+const catalog = Object.fromEntries(CATALOG.map((item) => [item.id, item]));
+const expectCatalog = {
+  'table-set': { name: "6' Table Set", rateCents: 2000, altRateCents: 1800, image: 'table', qtyUnit: 'Sets' },
+  tablecloth: { name: 'White Table Cloths', rateCents: 300, image: 'tablecloth' },
+  runner: { name: 'Table Runners', rateCents: 200, image: 'runner' },
+  table: { name: 'Folding Table', rateCents: 800, image: 'table' },
+  chair: { name: 'Folding Chair', rateCents: 200, image: 'chair' },
+  speaker: { name: 'JBL PartyBox 110', rateCents: 3000, image: 'speaker' },
+  cooler: { name: 'Cooler', rateCents: 1200, image: 'cooler' },
+  ice: { name: 'Bags of Ice', rateCents: 300, image: 'ice' },
+};
+for (const [id, want] of Object.entries(expectCatalog)) {
+  const item = catalog[id];
+  if (!item) {
+    fail(`catalog is missing ${id}`);
+    continue;
+  }
+  for (const [key, value] of Object.entries(want)) {
+    if (item[key] !== value) fail(`catalog ${id}.${key} is ${item[key]}, expected ${value}`);
+  }
+}
+
+const oneSet = priceOrder({ items: [{ id: 'table-set', qty: 1 }] });
+if (oneSet.subtotalCents !== 2000 || oneSet.showPromo) fail('one table set should default to $20 and not include a free cooler');
+if (oneSet.lines[0].name !== "6' Table Set" || oneSet.lines[0].rateText !== '$20.00' || oneSet.lines[0].qtyUnit !== 'Sets') {
+  fail('table set line did not keep the saved name, rate, and Sets unit');
+}
+
+const alejandra = priceOrder({
+  items: [
+    { id: 'table-set', qty: 6, rate: 20 },
+    { id: 'cooler', qty: 1 },
+    { id: 'ice', qty: 6 },
   ],
   delivery: 10,
   setup: 20,
+  serviceType: 'Setup Requested',
 });
-if (custom.subtotalCents !== 13800 || custom.totalCents !== 16800 || custom.depositCents !== 3360 || custom.balanceCents !== 13440) {
-  fail(`custom order priced ${custom.subtotalCents}/${custom.totalCents}/${custom.depositCents}/${custom.balanceCents}`);
+if (alejandra.subtotalCents !== 13800 || alejandra.totalCents !== 16800 || alejandra.depositCents !== 3360 || alejandra.balanceCents !== 13440) {
+  fail(`catalog order priced ${alejandra.subtotalCents}/${alejandra.totalCents}/${alejandra.depositCents}/${alejandra.balanceCents}`);
 }
-if (!custom.showPromo) fail('custom order at $138 should include the free cooler');
+if (!alejandra.showPromo) fail('catalog order at $138 should include the free cooler');
+if (alejandra.lines.map((line) => line.name).join('|') !== "6' Table Set|Cooler|Bags of Ice") {
+  fail(`catalog line order changed: ${alejandra.lines.map((line) => line.name).join('|')}`);
+}
+
+const clothOrder = priceOrder({
+  items: [
+    { id: 'table-set', qty: 15, rate: 18 },
+    { id: 'tablecloth', qty: 30 },
+    { id: 'runner', qty: 30 },
+    { id: 'cooler', qty: 1 },
+  ],
+  serviceType: 'Free Delivery & Pickup',
+  delivery: 0,
+});
+if (clothOrder.subtotalCents !== 42000 || !clothOrder.deliveryIncluded || !clothOrder.showPromo) {
+  fail(`cloth order priced ${clothOrder.subtotalCents}, included=${clothOrder.deliveryIncluded}, promo=${clothOrder.showPromo}`);
+}
+const clothHtml = renderQuoteDocument(clothOrder, { quoteNumber: 'RR-0925-03', quoteDate: '2026-09-22' });
+for (const needle of [
+  '6&#39; Table Set',
+  '1 Table + 6 Chairs',
+  'Sets',
+  '$18.00',
+  'White Table Cloths',
+  'Table Runners',
+  '$3.00',
+  '$2.00',
+  'FREE DELIVERY &amp; PICKUP',
+  'INCLUDED',
+  '>Included<',
+]) {
+  if (!clothHtml.includes(needle)) fail(`catalog quote is missing "${needle}"`);
+}
+if (clothHtml.includes('DELIVERY &amp; PICKUP</div><div class="price">$0.00')) {
+  fail('free delivery still prints a $0 delivery bar');
+}
 
 const discounted = priceOrder({ ...SAMPLE_ORDER, discount: 10 });
 if (discounted.totalCents !== 14700 || discounted.depositCents !== 2940) {
@@ -237,4 +339,4 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log('assert-generate-quote: ok, LaToya prices to $157.00 with a $31.40 deposit, optional Square CTA stays off unless a URL is pasted, RR-MMDD-## increments per Chicago day, /admin/ is unlisted');
+console.log('assert-generate-quote: ok, public publish has no Generate Quote, HQ /quote/ prices LaToya to $157.00 with a $31.40 deposit, Pay deposit here stays off unless a Square URL is pasted');

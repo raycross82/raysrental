@@ -3,6 +3,7 @@
 // keeps an HTML preview on the page, and downloads a letter-size PDF.
 
 import {
+  CATALOG,
   QUOTE_ASSETS,
   SAMPLE_ORDER,
   allocateSeq,
@@ -57,13 +58,79 @@ function status(message, kind) {
   el.className = 'gq-status' + (kind ? ' is-' + kind : '');
 }
 
-function readCustom() {
-  return [...document.querySelectorAll('.custom-line')].map((row) => ({
-    name: row.querySelector('[data-field="name"]').value,
-    detail: row.querySelector('[data-field="detail"]').value,
-    qty: row.querySelector('[data-field="qty"]').value,
-    rate: row.querySelector('[data-field="rate"]').value,
-  }));
+function moneyInput(cents) {
+  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+}
+
+function catalogNote(item) {
+  const price = moneyInput(item.rateCents);
+  if (item.id === 'table-set') return `${item.detail} · default $${price} (also used at $18)`;
+  if (item.cooler) return 'Free when the other items total $50 or more · extra coolers $' + price;
+  if (item.detail) return `${item.detail} · $${price}`;
+  return `$${price}`;
+}
+
+function buildCatalog() {
+  const wrap = $('catalog-lines');
+  wrap.replaceChildren();
+  for (const item of CATALOG) {
+    const row = document.createElement('div');
+    row.className = 'catalog-row';
+    const img = document.createElement('img');
+    img.className = 'thumb';
+    img.src = QUOTE_ASSETS[item.image];
+    img.alt = '';
+    const info = document.createElement('div');
+    info.className = 'info';
+    const name = document.createElement('b');
+    name.textContent = item.name;
+    const note = document.createElement('span');
+    note.textContent = catalogNote(item);
+    info.append(name, note);
+    const rateWrap = document.createElement('label');
+    rateWrap.className = 'rate-field';
+    rateWrap.append(document.createTextNode('Rate $'));
+    const rate = document.createElement('input');
+    rate.id = 'rate-' + item.id;
+    rate.type = 'number';
+    rate.min = '0';
+    rate.step = '0.01';
+    rate.inputMode = 'decimal';
+    rate.value = moneyInput(item.rateCents);
+    rate.setAttribute('aria-label', item.name + ' rate');
+    rateWrap.append(rate);
+    const qty = document.createElement('div');
+    qty.className = 'qty-ctl';
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.dataset.q = item.id;
+    down.dataset.d = '-1';
+    down.setAttribute('aria-label', 'Fewer ' + item.name);
+    down.textContent = '–';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.id = 'q-' + item.id;
+    input.min = '0';
+    input.max = String(item.max);
+    input.value = '0';
+    input.inputMode = 'numeric';
+    input.setAttribute('aria-label', item.name + ' quantity');
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.dataset.q = item.id;
+    up.dataset.d = '1';
+    up.setAttribute('aria-label', 'More ' + item.name);
+    up.textContent = '+';
+    qty.append(down, input, up);
+    row.append(img, info, rateWrap, qty);
+    wrap.append(row);
+    for (const button of [down, up]) {
+      button.addEventListener('click', () => {
+        const el = $('q-' + button.dataset.q);
+        setQty(el.id, (Number(el.value) || 0) + Number(button.dataset.d));
+      });
+    }
+  }
 }
 
 function syncSquareFields(opts = {}) {
@@ -83,11 +150,11 @@ function readOrder() {
     dropoff: $('i-dropoff').value,
     pickup: $('i-pickup').value,
     serviceType: $('i-service').value,
-    tables: $('q-tables').value,
-    chairs: $('q-chairs').value,
-    speakers: $('q-speakers').value,
-    coolers: $('q-coolers').value,
-    custom: readCustom(),
+    items: CATALOG.map((item) => ({
+      id: item.id,
+      qty: $('q-' + item.id).value,
+      rate: $('rate-' + item.id).value,
+    })),
     delivery: $('i-delivery').value,
     setup: $('i-setup').value,
     discount: $('i-discount').value,
@@ -155,31 +222,6 @@ function setQty(id, next) {
   refresh();
 }
 
-function addCustomRow(row = { name: '', detail: '', qty: 1, rate: '' }) {
-  const wrap = $('custom-lines');
-  if (wrap.children.length >= 8) return;
-  const div = document.createElement('div');
-  div.className = 'custom-line';
-  div.innerHTML = `
-    <div class="custom-grid">
-      <div><label>Item</label><input data-field="name" maxlength="80" placeholder="Bags of Ice"></div>
-      <div><label>Detail</label><input data-field="detail" maxlength="80" placeholder="Optional"></div>
-      <div><label>Qty</label><input data-field="qty" type="number" min="0" max="999" inputmode="numeric"></div>
-      <div><label>Rate $</label><input data-field="rate" type="number" min="0" step="0.01" inputmode="decimal"></div>
-    </div>
-    <button type="button" class="gq-text remove-line">Remove line</button>`;
-  div.querySelector('[data-field="name"]').value = row.name || '';
-  div.querySelector('[data-field="detail"]').value = row.detail || '';
-  div.querySelector('[data-field="qty"]').value = row.qty == null ? 1 : row.qty;
-  div.querySelector('[data-field="rate"]').value = row.rate == null ? '' : row.rate;
-  div.querySelector('.remove-line').addEventListener('click', () => {
-    div.remove();
-    refresh();
-  });
-  div.addEventListener('input', refresh);
-  wrap.appendChild(div);
-}
-
 function applyOrder(order) {
   $('i-name').value = order.customerName || '';
   $('i-phone').value = order.phone || '';
@@ -189,10 +231,26 @@ function applyOrder(order) {
   $('i-dropoff').value = order.dropoff || 'Evening before the event';
   $('i-pickup').value = order.pickup || 'Morning after the event';
   $('i-service').value = order.serviceType || 'Delivery & Setup';
-  $('q-tables').value = order.tables || 0;
-  $('q-chairs').value = order.chairs || 0;
-  $('q-speakers').value = order.speakers || 0;
-  $('q-coolers').value = order.coolers || 0;
+  const chosen = new Map();
+  if (Array.isArray(order.items)) {
+    for (const row of order.items) chosen.set(row.id, row);
+  } else {
+    const legacy = {
+      table: order.tables,
+      chair: order.chairs,
+      speaker: order.speakers,
+      cooler: order.coolers,
+    };
+    for (const [id, qty] of Object.entries(legacy)) {
+      if (qty) chosen.set(id, { id, qty });
+    }
+  }
+  for (const item of CATALOG) {
+    const row = chosen.get(item.id);
+    $('q-' + item.id).value = row && row.qty ? row.qty : 0;
+    const rate = row && row.rate != null && row.rate !== '' ? row.rate : moneyInput(item.rateCents);
+    $('rate-' + item.id).value = rate;
+  }
   $('i-delivery').value = order.delivery == null ? 0 : order.delivery;
   $('i-setup').value = order.setup == null ? 0 : order.setup;
   $('i-discount').value = order.discount == null ? 0 : order.discount;
@@ -200,8 +258,6 @@ function applyOrder(order) {
   $('i-include-square').checked = !!order.includeSquareLink;
   $('i-square-url').value = order.squarePaymentUrl || '';
   syncSquareFields();
-  $('custom-lines').replaceChildren();
-  for (const row of order.custom || []) addCustomRow(row);
   refresh();
 }
 
@@ -264,6 +320,12 @@ function validate(order, priced) {
     const raw = $(id).value.trim();
     if (raw && !Number.isFinite(Number(raw))) return 'Delivery, setup, and discount need to be dollar amounts.';
     if (Number(raw) < 0) return 'Delivery, setup, and discount can’t be negative.';
+  }
+  for (const item of CATALOG) {
+    const raw = $('rate-' + item.id).value.trim();
+    if (raw && (!Number.isFinite(Number(raw)) || Number(raw) < 0)) {
+      return item.name + ' needs a rate of $0 or more.';
+    }
   }
   if (order.includeSquareLink) {
     const typed = String(order.squarePaymentUrl || '').trim();
@@ -481,12 +543,7 @@ function persistForm() {
   }
 }
 
-document.querySelectorAll('.qty-ctl button').forEach((button) => {
-  button.addEventListener('click', () => {
-    const el = $('q-' + button.dataset.q);
-    setQty(el.id, (Number(el.value) || 0) + Number(button.dataset.d));
-  });
-});
+buildCatalog();
 
 $('order-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
@@ -499,10 +556,6 @@ $('order-form').addEventListener('input', () => {
 $('order-form').addEventListener('change', () => {
   refresh();
   persistForm();
-});
-$('add-line').addEventListener('click', () => {
-  addCustomRow();
-  refresh();
 });
 $('i-include-square').addEventListener('change', () => {
   syncSquareFields({ focus: true });

@@ -14,7 +14,7 @@
 // -> { number: "RR-0917-01", seq: 1, date: "2026-09-17" }
 
 import { getStore } from '@netlify/blobs';
-import { allocateSeq, chicagoDateParts, formatQuoteNumber } from '../../site-overlay/assets/js/quote-doc.js';
+import { allocateSeq, chicagoDateParts, formatQuoteNumber } from '../../public/assets/js/quote-doc.js';
 
 export async function assignQuoteNumber(blob, body, now = new Date()) {
   const parts = chicagoDateParts(now);

@@ -1,0 +1,20 @@
+# Rentals HQ — https://rays-rentals-hq.netlify.app/
+#
+# This is the only Netlify site that publishes Generate Quote.
+# In the Netlify UI for rays-rentals-hq, set the base directory to `hq`.
+# The public marketing site (raysrental.com) uses the repo-root netlify.toml
+# and must not publish this page, these assets, or the quote-number function.
+#
+# Staff open Generate Quote at /quote/ on this site.
+
+[build]
+  publish = "public"
+  command = "node ../scripts/assert-generate-quote.mjs"
+
+[functions]
+  directory = "netlify/functions"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

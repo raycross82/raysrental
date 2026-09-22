@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generate Quote | Ray's Rentals HQ</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#1b2a4a">
+<link rel="icon" href="/apple-touch-icon.png">
+<style>
+:root{
+  --navy:#1b2a4a; --blue:#3b6fd4; --accent:#e8a940;
+  --bg:#f4f6fa; --card:#fff; --text:#1e2433; --ink:#1e2433; --ink-soft:#6b7488;
+  --line:#e3e8f0; --cream:#f4f6fa;
+  --radius:12px; --shadow:0 1px 3px rgba(20,30,60,.08),0 4px 14px rgba(20,30,60,.06);
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
+.hq-top{background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.hq-top a{color:#fff;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:7px 12px}
+.hq-top a:hover{background:rgba(255,255,255,.12)}
+.hq-top strong{font-size:18px}
+.container{max-width:1100px;margin:0 auto;padding:20px 16px 80px}
+.lead{color:var(--ink-soft);margin:0 0 18px;max-width:720px;line-height:1.45}
+.gq-layout{display:grid;grid-template-columns:1.45fr .85fr;gap:28px;align-items:start}
+.gq-card,.summary-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 22px 8px;margin-bottom:18px}
+.summary-card{padding:18px;position:sticky;top:12px}
+.gq-card h2,.summary-card h2,.summary-card h3{font-family:var(--sans);font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:var(--navy);margin:0 0 8px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--navy);margin:10px 0 4px}
+input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;color:var(--ink);background:#fff}
+.legend-sub,.note{color:var(--ink-soft);font-size:.92rem;line-height:1.45;margin:0 0 8px}
+.gq-actions{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 18px}
+.btn,.gq-text{min-height:48px;border-radius:8px;padding:10px 16px;font:inherit;font-weight:800;cursor:pointer}
+.btn-primary{background:var(--navy);color:#fff;border:none}
+.btn-outline,.gq-text{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.gq-text:hover,.btn-outline:hover{border-color:var(--blue);color:var(--blue)}
+.gq-check{display:flex;gap:12px;align-items:flex-start;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:8px 0 16px;cursor:pointer;min-height:48px}
+.gq-check input{width:22px;height:22px;flex:0 0 auto;margin-top:2px;accent-color:var(--blue)}
+.gq-check span{font-weight:700;color:var(--navy);font-size:.95rem;line-height:1.45;text-transform:none;letter-spacing:normal}
+.gq-status{min-height:1.4em;font-weight:700;color:var(--ink-soft);margin:0 0 8px}
+.gq-status.is-ok{color:#0f6f3e}
+.gq-status.is-err{color:#8E2A20}
+.sline{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-weight:650}
+.sline.total{font-size:1.15rem;font-weight:800}
+.sline.deposit{color:#008000;font-weight:800}
+.gq-cooler{background:#f3faf3;border:1px solid #cfe8cf;border-radius:8px;padding:10px 12px;color:#0f6f3e;font-weight:700;font-size:.92rem;margin-top:12px}
+.catalog-row{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.catalog-row .thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#f4f6f8;flex:0 0 auto}
+.catalog-row .info{flex:1;min-width:0}
+.catalog-row .info b{display:block;color:var(--navy)}
+.catalog-row .info span{display:block;color:var(--ink-soft);font-size:.88rem}
+.rate-field{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);margin:0}
+.rate-field input{width:88px;min-height:48px}
+.qty-ctl{display:flex;align-items:center;gap:6px}
+.qty-ctl button{width:48px;height:48px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:1.3rem;font-weight:800;color:var(--navy);cursor:pointer}
+.qty-ctl input{width:64px;text-align:center;padding:8px}
+#quote-log{list-style:none;margin:0;padding:0}
+#quote-log li{padding:8px 0;border-top:1px solid var(--line);color:var(--ink);font-weight:650}
+#quote-log li:first-child{border-top:0}
+.preview-wrap{margin-top:8px}
+.preview-shell{background:#d5dbe3;border-radius:12px;padding:16px;overflow:hidden}
+.preview-scale{width:100%;max-width:816px;margin:0 auto;overflow:hidden;height:1056px}
+#quote-frame{width:816px;height:1056px;border:0;background:#fff;transform-origin:top left;display:block}
+@media(min-width:901px){
+  .summary-card{max-height:calc(100vh - 24px);overflow:auto}
+}
+@media(max-width:900px){
+  .gq-layout,.two-col{grid-template-columns:1fr}
+  .catalog-row{flex-wrap:wrap}
+  .summary-card{position:static}
+  .gq-actions .btn,.gq-actions .gq-text{flex:1 1 100%}
+  .gq-actions{position:sticky;bottom:0;z-index:40;background:var(--cream);padding:8px 0}
+}
+</style>
+</head>
+<body>
+<header class="hq-top">
+  <a href="/">← Rentals HQ</a>
+  <strong>Generate Quote</strong>
+</header>
+<main>
+  <div class="container">
+    <p class="lead">Enter the rental, then generate a branded customer quote. The PDF downloads and the preview stays on this page. This desk is only on Rentals HQ.</p>
+    <form id="order-form" autocomplete="off">
+      <div class="gq-layout">
+        <div>
+          <div class="gq-card">
+            <h2>Customer</h2>
+            <div class="two-col">
+              <div><label for="i-name">Customer name *</label><input id="i-name" name="name" autocomplete="name" required></div>
+              <div><label for="i-phone">Phone *</label><input id="i-phone" name="phone" type="tel" autocomplete="tel" required></div>
+            </div>
+            <label for="i-email">Email</label>
+            <input id="i-email" name="email" type="email" autocomplete="email">
+            <label for="i-address">Delivery / pickup address</label>
+            <input id="i-address" name="address" autocomplete="street-address" placeholder="Street, City, ST">
+          </div>
+          <div class="gq-card">
+            <h2>Event</h2>
+            <div class="two-col">
+              <div><label for="i-date">Rental date *</label><input id="i-date" name="date" type="date" required></div>
+              <div>
+                <label for="i-service">Service type</label>
+                <select id="i-service" name="serviceType">
+                  <option selected>Delivery &amp; Setup</option>
+                  <option>Delivery &amp; Pickup</option>
+                  <option>Free Delivery &amp; Pickup</option>
+                  <option>Setup Requested</option>
+                  <option>Delivery Only</option>
+                  <option>Free Pickup</option>
+                </select>
+              </div>
+              <div>
+                <label for="i-dropoff">Drop off time</label>
+                <input id="i-dropoff" name="dropoffTiming" list="dropoff-options" value="Evening before the event">
+                <datalist id="dropoff-options">
+                  <option value="Evening before the event"></option>
+                  <option value="Morning of the event"></option>
+                  <option value="Afternoon of the event"></option>
+                  <option value="Before Noon"></option>
+                  <option value="Not sure yet - Ray will confirm"></option>
+                </datalist>
+              </div>
+              <div>
+                <label for="i-pickup">Pick up time</label>
+                <input id="i-pickup" name="pickupTiming" list="pickup-options" value="Morning after the event">
+                <datalist id="pickup-options">
+                  <option value="Morning after the event"></option>
+                  <option value="Same night after the event"></option>
+                  <option value="Next evening"></option>
+                  <option value="TBD"></option>
+                  <option value="Not sure yet - Ray will confirm"></option>
+                </datalist>
+              </div>
+            </div>
+          </div>
+          <div class="gq-card">
+            <h2>Items</h2>
+            <p class="legend-sub">Pick from the saved catalog so every quote uses the same names and photos. Change the quantity and the rate for this order. One cooler is free when the other items total $50 or more. The 6' table set starts at $20; change it to $18 when that rate applies.</p>
+            <div id="catalog-lines"></div>
+            <label class="gq-check" for="i-free-cooler"><input id="i-free-cooler" type="checkbox" checked><span>Include 1 free cooler when the item subtotal is $50 or more</span></label>
+          </div>
+          <div class="gq-card">
+            <h2>Fees</h2>
+            <p class="legend-sub">Choose Free Delivery &amp; Pickup and leave delivery at $0 to print it as included.</p>
+            <div class="two-col">
+              <div><label for="i-delivery">Delivery $</label><input id="i-delivery" name="delivery" type="number" min="0" step="0.01" value="0" inputmode="decimal"></div>
+              <div><label for="i-setup">Setup / teardown $</label><input id="i-setup" name="setup" type="number" min="0" step="0.01" value="0" inputmode="decimal"></div>
+              <div><label for="i-discount">Discount $</label><input id="i-discount" name="discount" type="number" min="0" step="0.01" value="0" inputmode="decimal"></div>
+            </div>
+          </div>
+          <div class="gq-card">
+            <h2>Payment</h2>
+            <p class="legend-sub">Leave this off when the deposit is Zelle, Cash App, or cash. Turn it on only when this quote should open Square.</p>
+            <label class="gq-check" for="i-include-square"><input id="i-include-square" type="checkbox"><span>Include Square payment link</span></label>
+            <div id="square-fields" hidden>
+              <label for="i-square-url">Square Payment Link URL</label>
+              <input id="i-square-url" name="squarePaymentUrl" type="url" inputmode="url" placeholder="https://square.link/u/…" autocomplete="off">
+              <p class="legend-sub" style="margin-top:8px">Paste the link from Square. The quote shows “Pay deposit here” under the deposit amount.</p>
+            </div>
+          </div>
+        </div>
+        <aside class="summary-card" aria-label="Order total">
+          <h3>This order</h3>
+          <div id="cart-lines"></div>
+          <div class="sline"><span>Subtotal</span><span id="s-subtotal">$0.00</span></div>
+          <div class="sline"><span>Delivery</span><span id="s-delivery">$0.00</span></div>
+          <div class="sline"><span>Setup / Teardown</span><span id="s-setup">$0.00</span></div>
+          <div class="sline" id="s-discount-row" hidden><span>Discount</span><span id="s-discount">$0.00</span></div>
+          <div class="sline total"><span>Total</span><span id="s-total">$0.00</span></div>
+          <div class="sline deposit"><span>20% deposit</span><span id="s-deposit">$0.00</span></div>
+          <div class="sline"><span>Remaining</span><span id="s-balance">$0.00</span></div>
+          <p class="gq-cooler" id="s-cooler-note" hidden></p>
+          <p class="gq-status" id="quote-status" role="status"></p>
+          <div class="gq-actions">
+            <button type="button" class="btn btn-primary" id="generate-quote">Generate Quote</button>
+            <button type="button" class="btn btn-outline" id="download-pdf" disabled>Download PDF</button>
+            <button type="button" class="gq-text" id="download-html" disabled>Download HTML</button>
+            <button type="button" class="gq-text" id="print-quote" disabled>Print</button>
+            <button type="button" class="gq-text" id="load-sample">Load sample order</button>
+            <button type="button" class="gq-text" id="clear-order">Clear</button>
+          </div>
+          <h2 style="margin-top:22px">Recent quotes</h2>
+          <p class="legend-sub">Numbers from this browser. On Rentals HQ the counter is shared, so the same day continues RR-MMDD-01, RR-MMDD-02, and starts over the next day.</p>
+          <ul id="quote-log"></ul>
+        </aside>
+      </div>
+    </form>
+    <div class="preview-wrap" id="preview-wrap" hidden>
+      <h2 style="margin-bottom:12px">Preview</h2>
+      <div class="preview-shell"><div class="preview-scale" id="preview-scale"><iframe id="quote-frame" title="Quote preview"></iframe></div></div>
+    </div>
+  </div>
+</main>
+<script src="/assets/js/vendor/html2canvas.min.js"></script>
+<script src="/assets/js/vendor/jspdf.umd.min.js"></script>
+<script type="module" src="/assets/js/admin-quote.js?v=4"></script>
+</body>
+</html>
