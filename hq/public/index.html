@@ -1,0 +1,2082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ray's Rentals — Business Tracker</title>
+<meta name="theme-color" content="#1b2a4a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rentals HQ">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root{
+    --navy:#1b2a4a; --navy2:#24365e; --accent:#e8a940; --accent2:#f4c467;
+    --bg:#f4f6fa; --card:#ffffff; --text:#1e2433; --muted:#6b7488;
+    --green:#1e9e5a; --red:#d64545; --blue:#3b6fd4; --border:#e3e8f0;
+    --radius:12px; --shadow:0 1px 3px rgba(20,30,60,.08),0 4px 14px rgba(20,30,60,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  header{background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header .logo{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#cdd5e4,#8b97b0);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+  header h1{font-size:18px;font-weight:700}
+  header .sub{font-size:12px;opacity:.7}
+  header .spacer{flex:1}
+  header button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer}
+  header button:hover{background:rgba(255,255,255,.22)}
+  nav{display:flex;gap:4px;background:var(--card);padding:8px 14px;border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:50}
+  nav button{border:none;background:none;padding:9px 15px;border-radius:9px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+  nav button.active{background:var(--navy);color:#fff}
+  nav button:hover:not(.active){background:var(--bg)}
+  main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+  .stat{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+  .stat .label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .stat .value{font-size:26px;font-weight:800;margin-top:4px}
+  .stat .hint{font-size:12px;color:var(--muted);margin-top:2px}
+  .panel{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:18px}
+  .panel h2{font-size:15px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .btn{background:var(--navy);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn:hover{background:var(--navy2)}
+  .btn.accent{background:var(--accent);color:#3a2a08}
+  .btn.accent:hover{background:var(--accent2)}
+  .btn.ghost{background:none;color:var(--navy);border:1px solid var(--border)}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.danger{background:none;color:var(--red);border:1px solid #f0c9c9}
+  a.btn{display:inline-block;text-decoration:none;text-align:center}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:2px solid var(--border)}
+  td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:hover td{background:#f8fafd}
+  .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
+  .tag.quote{background:#eef2fb;color:var(--blue)}
+  .tag.deposit{background:#fdf3e0;color:#a2701c}
+  .tag.paid{background:#e6f6ed;color:var(--green)}
+  .tag.done{background:#eceef2;color:var(--muted)}
+  .tag.cancel{background:#fbeaea;color:var(--red)}
+  .tag.new{background:#eef2fb;color:var(--blue)}
+  .tag.contacted{background:#fdf3e0;color:#a2701c}
+  .tag.won{background:#e6f6ed;color:var(--green)}
+  .tag.lost{background:#fbeaea;color:var(--red)}
+  .money-pos{color:var(--green);font-weight:700}
+  .money-neg{color:var(--red);font-weight:700}
+  .muted{color:var(--muted);font-size:12.5px}
+  .schedule-item{display:flex;gap:12px;padding:10px 6px;border-bottom:1px solid var(--border);align-items:flex-start;border-radius:8px}
+  .schedule-item:last-child{border-bottom:none}
+  .clickable{cursor:pointer;transition:background .12s}
+  .clickable:hover{background:#f2f6ff}
+  .clickable:active{background:#e8effc}
+  .stat.clickable:hover{box-shadow:0 2px 6px rgba(20,30,60,.14),0 6px 18px rgba(20,30,60,.10)}
+  .tap-hint{font-size:11px;color:var(--muted);float:right;font-weight:600}
+  .addr-line{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .addr-link{color:var(--blue);text-decoration:none;font-weight:600;font-size:13px;padding:3px 8px;border:1px solid #d6e2f7;border-radius:7px;background:#f4f8ff;display:inline-block}
+  .addr-link:hover{background:#e7f0ff;border-color:var(--blue)}
+  .copy-btn{border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;padding:3px 7px;color:var(--muted)}
+  .copy-btn:hover{background:var(--bg);color:var(--navy)}
+  .phone-line{display:inline-flex;align-items:center;gap:5px}
+  .phone-line a{color:var(--green);text-decoration:none;font-weight:600;font-size:13px;padding:3px 8px;border:1px solid #cfeadb;border-radius:7px;background:#f2fbf6}
+  .phone-line a:hover{background:#e4f6ec}
+  .route-btn{background:var(--green);color:#fff;border:none;border-radius:9px;padding:9px 15px;font-size:13px;font-weight:700;cursor:pointer}
+  .route-btn:hover{filter:brightness(1.07)}
+  tr.clickable:hover td{background:#f2f6ff}
+  .schedule-item .when{min-width:105px;font-weight:700;font-size:13px}
+  .pill{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;margin-right:6px}
+  .pill.drop{background:#e6f6ed;color:var(--green)}
+  .pill.pick{background:#fdf3e0;color:#a2701c}
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,22,40,.5);display:none;align-items:flex-start;justify-content:center;padding:24px 12px;z-index:100;overflow-y:auto}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:560px;padding:22px}
+  .modal h3{margin-bottom:14px;font-size:17px}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .frow.single{grid-template-columns:1fr}
+  label{font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:#fff}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--navy);outline-offset:-1px}
+  .items-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:10px}
+  .avail-note{font-size:12.5px;border-radius:8px;padding:9px 12px;margin:6px 0 12px;background:#f2f6ff;color:var(--blue)}
+  .avail-note.bad{background:#fbeaea;color:var(--red)}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  /* calendar */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+  .cal-head b{font-size:17px}
+  .cal-sum{display:flex;gap:16px;flex-wrap:wrap;background:#f7f9fd;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+  .cal-sum div span{color:var(--muted);font-size:11.5px;display:block;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  .cal-sum div b{font-size:16px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-dow{font-size:11px;font-weight:800;color:var(--muted);text-align:center;padding:4px 0;text-transform:uppercase}
+  .cal-cell{min-height:118px;border:1px solid var(--border);border-radius:10px;padding:6px;font-size:11px;background:#fff;cursor:pointer;position:relative;transition:background .12s,box-shadow .12s;display:flex;flex-direction:column}
+  .cal-cell:hover:not(.other){background:#f2f6ff;box-shadow:0 2px 8px rgba(20,30,60,.10)}
+  .cal-cell.other{opacity:.3;cursor:default;background:#fafbfd}
+  .cal-cell.today{border-color:var(--accent);border-width:2px;background:#fffdf7}
+  .cal-cell .d{font-weight:800;font-size:13px;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center}
+  .cal-cell .d .rev{font-size:10.5px;color:var(--green);font-weight:700}
+  .cal-chip{display:block;background:var(--navy);color:#fff;border-radius:5px;padding:2px 5px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-size:10.5px}
+  .cal-chip.cont{background:#8b97b0}
+  .cal-chip.pick{background:var(--accent);color:#3a2a08}
+  .cal-items{margin-top:auto;font-size:10px;color:#4a5468;font-weight:700;letter-spacing:.2px}
+  .cap-bar{height:5px;border-radius:3px;background:#e9edf4;margin-top:4px;overflow:hidden}
+  .cap-fill{height:100%;border-radius:3px}
+  .cap-ok{background:#7ec8a0}.cap-tight{background:var(--accent)}.cap-over{background:var(--red)}
+  .cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:12px;align-items:center}
+  .lg{display:inline-flex;align-items:center;gap:5px}
+  .lg i{width:12px;height:6px;border-radius:3px;display:inline-block;font-style:normal}
+  /* day detail panel */
+  .day-panel{position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);background:#fff;box-shadow:-6px 0 26px rgba(15,22,40,.20);z-index:180;display:none;flex-direction:column}
+  .day-panel.open{display:flex}
+  .day-panel header{background:var(--navy);color:#fff;padding:16px 18px;display:flex;justify-content:space-between;align-items:center}
+  .day-panel header h3{font-size:16px}
+  .day-panel header button{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:8px;cursor:pointer}
+  .day-body{padding:16px 18px;overflow-y:auto;flex:1}
+  .avail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:16px}
+  .avail-cell{background:var(--bg);border-radius:9px;padding:9px 10px}
+  .avail-cell .n{font-size:19px;font-weight:800}
+  .avail-cell .l{font-size:11px;color:var(--muted);font-weight:600}
+  .day-book{border:1px solid var(--border);border-radius:10px;padding:11px;margin-bottom:9px}
+  .day-book .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+  .agenda-toggle{font-size:12px}
+  @media(max-width:700px){
+    .cal-grid{gap:3px}
+    .cal-cell{min-height:74px;padding:3px}
+    .cal-cell .d{font-size:11px}
+    .cal-chip{font-size:9px;padding:1px 3px}
+    .cal-items{font-size:9px}
+    .day-panel{width:100%}
+  }
+  /* subs (subcontractors) */
+  .chip{display:inline-block;background:var(--bg);border:1px solid var(--border);color:#4a5468;border-radius:20px;padding:3px 9px;font-size:11.5px;font-weight:700;margin:0 4px 4px 0}
+  .chip.area{background:#f2f6ff;border-color:#d6e2f7;color:var(--blue)}
+  .chip.gear{background:#fdf3e0;border-color:#f0dcb4;color:#a2701c}
+  .sub-card{border:1px solid var(--border);border-radius:11px;padding:13px;margin-bottom:10px}
+  .sub-card.inactive{background:#fafbfd;opacity:.7}
+  .sub-card .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
+  .sub-card .top>div{min-width:0;overflow-wrap:anywhere}
+  .sub-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+  .sub-actions a{flex:1 1 84px;min-height:46px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;border:none;white-space:nowrap}
+  .sub-actions a.act-call{background:var(--green);color:#fff}
+  .sub-actions a.act-text{background:var(--blue);color:#fff}
+  .sub-actions a.act-mail{background:var(--navy);color:#fff}
+  .sub-actions a:hover{filter:brightness(1.07)}
+  .sub-edit-row{display:flex;gap:8px;margin-top:8px}
+  .sub-filters{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin-bottom:10px}
+  .checkgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:6px;margin-bottom:10px}
+  .checkgrid label{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;font-weight:600;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 10px;cursor:pointer}
+  .checkgrid input{width:18px;min-width:18px;height:18px;padding:0;margin:0}
+  .toggle-row{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;color:var(--text)}
+  .toggle-row input{width:20px;min-width:20px;height:20px;padding:0;margin:0}
+  .toggle-row label{margin:0;color:var(--text);font-size:13px;cursor:pointer}
+  @media(max-width:640px){ .sub-filters{grid-template-columns:1fr} .searchbox{max-width:none}
+    .checkgrid{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:5px}
+    .checkgrid label{padding:9px 7px;font-size:12.5px}
+    .modal{padding:16px} .sub-edit-row button{flex:1;min-height:38px} }
+  /* collapsible list sections (Upcoming / Past bookings) */
+  .sec{border:1px solid var(--border);border-radius:11px;margin-bottom:12px;overflow:hidden}
+  .sec>summary{list-style:none;cursor:pointer;padding:11px 13px;background:#f7f9fd;font-size:13.5px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .sec>summary::-webkit-details-marker{display:none}
+  .sec>summary:hover{background:#eef3fb}
+  .sec>summary .caret{color:var(--muted);font-size:10px;transition:transform .15s;display:inline-block}
+  .sec[open]>summary .caret{transform:rotate(90deg)}
+  .sec>summary .n{color:var(--muted);font-weight:700}
+  .sec>summary .sec-note{margin-left:auto;color:var(--muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .sec-body{padding:2px 6px 6px}
+  /* today's route sheet */
+  .stop{border:1px solid var(--border);border-radius:11px;padding:11px;margin-bottom:9px}
+  .stop .stop-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .stop .stop-t{font-weight:800;font-size:13px;white-space:nowrap}
+  .stop-acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .stop-act{flex:1 1 120px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:5px;line-height:1.2;border-radius:10px;font-size:12.5px;font-weight:700;text-decoration:none;border:1px solid var(--border);background:#fff;color:var(--navy);cursor:pointer;padding:4px 8px;text-align:center;font-family:inherit}
+  .stop-act:hover{background:var(--bg)}
+  .stop-act.act-text{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .stop-act.act-text:hover{filter:brightness(1.07)}
+  .stop-act.disabled{background:#eceef2;color:#9aa3b5;border-color:var(--border);cursor:not-allowed}
+  .stop-act.disabled:hover{background:#eceef2}
+  /* rental terms acknowledgement */
+  .terms-line{font-size:11.5px;font-weight:700;margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .terms-line.ok{color:var(--green)}
+  .terms-line.no{color:var(--muted);font-weight:600}
+  .terms-box{border:1px solid var(--border);border-radius:10px;padding:11px;margin-bottom:10px;background:#fafbfd}
+  .terms-body{font-size:12px;color:#4a5468;line-height:1.55;margin:8px 0 0;padding-left:16px}
+  .terms-body li{margin-bottom:3px}
+  .fineprint{font-size:11px;color:var(--muted);font-weight:600;margin-top:7px}
+  .empty{color:var(--muted);text-align:center;padding:26px 10px;font-size:13.5px}
+  .inv-row input{max-width:110px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .searchbox{max-width:220px}
+  @media(max-width:640px){ .frow{grid-template-columns:1fr} td,th{padding:8px 6px} main{padding:14px 8px 60px} }
+  /* ---- quotes ---- */
+  .tag.conv{background:var(--navy);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .q-card{border:1px solid var(--border);border-radius:11px;padding:13px;margin-bottom:10px}
+  .q-card .q-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .q-card .q-top>div{min-width:0;overflow-wrap:anywhere}
+  .q-acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+  .q-act{flex:1 1 120px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:5px;line-height:1.2;border-radius:10px;font-size:12.5px;font-weight:700;text-decoration:none;border:1px solid var(--border);background:#fff;color:var(--navy);cursor:pointer;padding:4px 8px;text-align:center;font-family:inherit}
+  .q-act:hover:not(:disabled){background:var(--bg)}
+  .q-act.prim{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .q-act.sms{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .q-act.go{background:var(--green);color:#fff;border-color:var(--green)}
+  .q-act.prim:hover,.q-act.sms:hover,.q-act.go:hover{filter:brightness(1.08)}
+  .q-act.del{color:var(--red);border-color:#f0c9c9}
+  .q-act:disabled{background:#eceef2;color:#9aa3b5;border-color:var(--border);cursor:not-allowed}
+  /* 44px tap targets, scoped to the Quotes tab and its builder so no existing tab shifts */
+  .quotes-tab .btn,#quoteOverlay .btn{min-height:44px}
+  #quoteOverlay input,#quoteOverlay select,#quoteOverlay textarea{min-height:44px}
+  .q-tot{background:#f7f9fd;border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin:6px 0 12px}
+  .q-tot .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0}
+  .q-tot .row .l{color:var(--muted);font-weight:700;min-width:0;overflow-wrap:anywhere}
+  .q-tot .row .v{white-space:nowrap;font-weight:700}
+  .q-tot .row.big{font-size:17px;border-top:1px solid var(--border);margin-top:6px;padding-top:8px}
+  .q-tot .row.big .l{color:var(--text);font-weight:800}
+  .q-tot .row.big .v{font-weight:800}
+  .q-sum{display:flex;gap:12px;flex-wrap:wrap}
+  .q-sum>div{flex:1 1 78px}
+  .q-sum span{color:var(--muted);font-size:11.5px;display:block;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  .q-sum b{font-size:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">RS</div>
+  <div>
+    <h1>Ray's Rentals — Business Tracker</h1>
+    <div class="sub">Bookings · Inventory · Money · Customers · Leads &amp; Subs</div>
+  </div>
+  <div class="spacer"></div>
+  <a href="/quote/" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;text-decoration:none">Generate Quote</a>
+  <span id="syncBadge" style="font-size:12px;opacity:.85">● …</span>
+  <button onclick="lockOrSetPin()" title="Lock / set PIN">🔒</button>
+</header>
+
+<!-- PIN lock -->
+<div id="pinOverlay" style="display:none;position:fixed;inset:0;background:var(--navy);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:14px">
+  <div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#cdd5e4,#8b97b0);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px">RS</div>
+  <div style="color:#fff;font-weight:700">Enter PIN</div>
+  <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" style="width:160px;text-align:center;font-size:22px;letter-spacing:6px;padding:10px;border-radius:10px;border:none" onkeydown="if(event.key==='Enter')tryUnlock()">
+  <button class="btn accent" onclick="tryUnlock()">Unlock</button>
+  <div id="pinErr" style="color:#f4c467;font-size:13px;height:16px"></div>
+</div>
+
+<nav id="nav"></nav>
+<main id="main"></main>
+
+<!-- Booking modal -->
+<div class="overlay" id="bookingOverlay">
+  <div class="modal">
+    <h3 id="bookingModalTitle">New booking</h3>
+    <div class="frow">
+      <div><label>Customer name</label><input id="b_customer"></div>
+      <div><label>Phone</label>
+        <div style="display:flex;gap:6px">
+          <input id="b_phone" placeholder="(945) 555-0100" style="flex:1">
+          <a class="btn ghost" id="b_callBtn" href="#" onclick="const p=$('b_phone').value.trim();if(!p){alert('No phone number entered.');return false}window.location.href=telHref(p);return false" title="Call">📞</a>
+          <a class="btn ghost" id="b_textBtn" href="#" onclick="const p=$('b_phone').value.trim();if(!p){alert('No phone number entered.');return false}window.location.href=smsHref(p);return false" title="Text">💬</a>
+        </div>
+      </div>
+    </div>
+    <div class="frow single">
+      <div><label>Address / location</label>
+        <div style="display:flex;gap:6px">
+          <input id="b_address" style="flex:1">
+          <button class="btn ghost" type="button" onclick="openMaps($('b_address').value)" title="Open directions">📍</button>
+          <button class="btn ghost" type="button" onclick="copyAddr($('b_address').value)" title="Copy address">⧉</button>
+        </div>
+      </div>
+    </div>
+    <div class="frow">
+      <div><label>Drop-off (start)</label><input type="datetime-local" id="b_start" onchange="updateAvail()"></div>
+      <div><label>Pick-up (end)</label><input type="datetime-local" id="b_end" onchange="updateAvail()"></div>
+    </div>
+    <label style="margin-bottom:6px">Items</label>
+    <div class="items-grid" id="b_items"></div>
+    <div class="avail-note" id="availNote" style="display:none"></div>
+    <div class="frow">
+      <div><label>Total price ($)</label><input type="number" id="b_price" min="0" step="0.01"></div>
+      <div><label>Amount paid so far ($)</label><input type="number" id="b_paid" min="0" step="0.01" value="0"></div>
+    </div>
+    <div class="frow">
+      <div><label>Status</label>
+        <select id="b_status">
+          <option>Quote</option><option>Deposit Due</option><option>Deposit Paid</option><option>Paid In Full</option>
+          <option>Completed</option><option>Cancelled</option>
+        </select>
+      </div>
+      <div><label>&nbsp;</label><button class="btn ghost" style="width:100%" onclick="suggestPrice()">Suggest price from items</button></div>
+    </div>
+    <div class="frow single">
+      <div><label>Notes</label><textarea id="b_notes" rows="2"></textarea></div>
+    </div>
+    <div class="terms-box">
+      <div class="toggle-row">
+        <input type="checkbox" id="b_terms" onchange="onTermsToggle()">
+        <label for="b_terms">Terms accepted</label>
+      </div>
+      <div style="margin-top:8px"><label>Name of the person who agreed</label>
+        <input id="b_termsBy" placeholder="Who agreed, as they gave it">
+      </div>
+      <div class="muted" id="b_termsHint" style="margin-top:7px"></div>
+      <details style="margin-top:9px">
+        <summary class="muted" style="cursor:pointer">Read the rental terms</summary>
+        <ul class="terms-body" id="b_termsText"></ul>
+      </details>
+      <div class="modal-actions" style="justify-content:flex-start;margin-top:9px">
+        <button class="btn sm ghost" type="button" onclick="copyTerms(event)">📋 Copy terms</button>
+      </div>
+      <div class="fineprint">Record only — not a legal e-signature.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="b_delete" style="display:none" onclick="deleteBooking()">Delete</button>
+      <button class="btn ghost" onclick="closeModal('bookingOverlay')">Cancel</button>
+      <button class="btn accent" onclick="saveBooking()">Save booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quote modal -->
+<div class="overlay" id="quoteOverlay">
+  <div class="modal">
+    <h3 id="quoteModalTitle">New quote</h3>
+    <div class="frow">
+      <div><label>Customer name</label><input id="q_customer" oninput="quoteCalc()"></div>
+      <div><label>Phone</label>
+        <div style="display:flex;gap:6px">
+          <input id="q_phone" placeholder="(945) 555-0100" style="flex:1" oninput="quoteCalc()">
+          <a class="btn ghost" href="#" onclick="const p=$('q_phone').value.trim();if(!p){alert('No phone number entered.');return false}window.location.href=telHref(p);return false" title="Call">&#128222;</a>
+          <a class="btn ghost" href="#" onclick="const p=$('q_phone').value.trim();if(!p){alert('No phone number entered.');return false}window.location.href=smsHref(p);return false" title="Text">&#128172;</a>
+        </div>
+      </div>
+    </div>
+    <div class="frow">
+      <div><label>Email (optional)</label><input id="q_email" type="email" placeholder="name@email.com" oninput="quoteCalc()"></div>
+      <div><label>Status</label><select id="q_status" onchange="quoteCalc()"></select></div>
+    </div>
+    <div class="frow single">
+      <div><label>Delivery address</label>
+        <div style="display:flex;gap:6px">
+          <input id="q_address" style="flex:1" oninput="quoteCalc()">
+          <button class="btn ghost" type="button" onclick="openMaps($('q_address').value)" title="Open directions">&#128205;</button>
+          <button class="btn ghost" type="button" onclick="copyAddr($('q_address').value)" title="Copy address">&#10696;</button>
+        </div>
+      </div>
+    </div>
+    <div class="frow">
+      <div><label>Event start</label><input type="datetime-local" id="q_start" onchange="quoteCalc()" oninput="quoteCalc()"></div>
+      <div><label>Event end</label><input type="datetime-local" id="q_end" onchange="quoteCalc()" oninput="quoteCalc()"></div>
+    </div>
+    <label style="margin-bottom:6px">Items</label>
+    <div class="items-grid" id="q_items"></div>
+    <div class="frow">
+      <div><label>Delivery &amp; setup ($)</label><input type="number" id="q_delivery" min="0" step="1" value="150" oninput="quoteCalc()"></div>
+      <div><label>Discount ($)</label><input type="number" id="q_discount" min="0" step="1" value="0" oninput="quoteCalc()"></div>
+    </div>
+    <div class="avail-note bad" id="q_avail" style="display:none"></div>
+    <div class="q-tot" id="q_totals"></div>
+    <div class="frow single">
+      <div><label>Notes</label><textarea id="q_notes" rows="2" placeholder="Gate code, where to set up&hellip;" oninput="quoteCalc()"></textarea></div>
+    </div>
+    <details id="q_linkBox" style="margin-top:2px;display:none">
+      <summary class="muted" style="cursor:pointer">Agreement link &mdash; exactly what the customer opens</summary>
+      <textarea id="q_link" rows="3" readonly style="font-size:12px;word-break:break-all;margin-top:8px"></textarea>
+      <div class="toolbar" style="margin-top:8px"><button class="btn sm ghost" type="button" onclick="copyQuoteLinkFromForm(this)">&#128203; Copy link</button></div>
+      <div class="muted" style="margin-top:7px">The link carries the quote details only. The agreement page works out the totals itself, so Ray and the customer always see the same numbers.</div>
+    </details>
+    <div class="muted" style="margin-top:11px">Signed agreements come to you by email. Come back here and tap <b>Mark Signed</b> when one lands.</div>
+    <div class="modal-actions">
+      <button class="btn danger" id="q_delete" style="display:none" onclick="deleteQuote()">Delete</button>
+      <button class="btn ghost" onclick="closeModal('quoteOverlay')">Cancel</button>
+      <button class="btn accent" onclick="saveQuote()">Save quote</button>
+    </div>
+  </div>
+</div>
+
+<!-- Today's route sheet -->
+<div class="overlay" id="routeOverlay">
+  <div class="modal">
+    <h3>Today's route</h3>
+    <div id="routeBody"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('routeOverlay')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day detail panel -->
+<div class="day-panel" id="dayPanel">
+  <header><h3 id="dayTitle">Day</h3><button onclick="closeDay()" title="Close">✕</button></header>
+  <div class="day-body" id="dayBody"></div>
+</div>
+
+<!-- Send order form modal -->
+<div class="overlay" id="sendOverlay">
+  <div class="modal">
+    <h3>Send order form</h3>
+    <p class="muted" style="margin-bottom:12px" id="send_who"></p>
+    <label>Order link (everything is packed inside it)</label>
+    <textarea id="send_link" rows="4" readonly style="font-size:12px;word-break:break-all"></textarea>
+    <div class="modal-actions" style="justify-content:flex-start;margin-top:10px;flex-wrap:wrap">
+      <button class="btn accent" onclick="copyOrderLink()">📋 Copy link</button>
+      <a class="btn" id="send_sms" style="text-decoration:none">📱 Text to client</a>
+      <a class="btn ghost" id="send_preview" target="_blank" style="text-decoration:none">👁 Preview</a>
+    </div>
+    <div class="muted" style="margin-top:12px" id="send_hint"></div>
+    <details style="margin-top:12px">
+      <summary class="muted" style="cursor:pointer">Settings: where is order.html hosted?</summary>
+      <label style="margin-top:8px">Order page URL</label>
+      <input id="send_url" onchange="S.settings.orderUrl=this.value.trim();save();refreshSendLink()">
+    </details>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('sendOverlay')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lead modal -->
+<div class="overlay" id="leadOverlay">
+  <div class="modal">
+    <h3 id="leadModalTitle">New lead</h3>
+    <div class="frow">
+      <div><label>Name</label><input id="l_name"></div>
+      <div><label>Phone / email</label><input id="l_contact"></div>
+    </div>
+    <div class="frow">
+      <div><label>Event date</label><input type="date" id="l_date"></div>
+      <div><label>Status</label>
+        <select id="l_status"><option>New</option><option>Contacted</option><option>Quoted</option><option>Won</option><option>Lost</option></select>
+      </div>
+    </div>
+    <div class="frow single">
+      <div><label>What they need / notes</label><textarea id="l_notes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="l_delete" style="display:none" onclick="deleteLead()">Delete</button>
+      <button class="btn ghost" onclick="closeModal('leadOverlay')">Cancel</button>
+      <button class="btn accent" onclick="saveLead()">Save lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub (subcontractor) modal -->
+<div class="overlay" id="subOverlay">
+  <div class="modal">
+    <h3 id="subModalTitle">New sub</h3>
+    <div class="frow">
+      <div><label>Name</label><input id="s_name"></div>
+      <div><label>Company</label><input id="s_company"></div>
+    </div>
+    <div class="frow">
+      <div><label>Phone</label><input id="s_phone" placeholder="(469) 555-0142"></div>
+      <div><label>Email</label><input id="s_email" type="email" placeholder="name@company.com"></div>
+    </div>
+    <label style="margin-bottom:6px">Areas they cover</label>
+    <div class="checkgrid" id="s_areas"></div>
+    <div class="frow single">
+      <div><label>Other areas (comma separated)</label><input id="s_areasOther" placeholder="Ennis, Midlothian"></div>
+    </div>
+    <label style="margin-bottom:6px">Gear they carry</label>
+    <div class="checkgrid" id="s_gear"></div>
+    <div class="frow single">
+      <div><label>Other gear (comma separated)</label><input id="s_gearOther" placeholder="Photo booth, Bounce house"></div>
+    </div>
+    <div class="frow single">
+      <div><label>Notes</label><textarea id="s_notes" rows="2" placeholder="Rate, reliability, who to ask for…"></textarea></div>
+    </div>
+    <div class="toggle-row" style="margin:2px 0 4px">
+      <input type="checkbox" id="s_active"><label for="s_active">Active — show this sub in the list</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="s_delete" style="display:none" onclick="deleteSub()">Delete</button>
+      <button class="btn ghost" onclick="closeModal('subOverlay')">Cancel</button>
+      <button class="btn accent" onclick="saveSub()">Save sub</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- state ---------------- */
+const KEY='raysRentalsTracker_v1';
+const seed={
+  inventory:[
+    {id:'tables', name:'6-ft Folding Tables', qty:15, price:8},
+    {id:'chairs', name:'Folding Chairs', qty:90, price:2},
+    {id:'coolers', name:'Drink Coolers', qty:3, price:12},
+    {id:'speakers', name:'JBL PartyBox Speaker', qty:1, price:30}
+  ],
+  bookings:[
+    {id:1, customer:'Allie Voelkel', phone:'', address:'4571 Bonfire Dr', start:'2026-07-03T16:00', end:'2026-07-05T08:00',
+     items:{tables:10,chairs:60,coolers:2,speakers:0}, price:195, paid:195, status:'Completed', notes:'Drop off 4pm, pick up 8am'},
+    {id:2, customer:'Emily Tully', phone:'', address:'431 Mayrant Dr', start:'2026-07-04T00:00', end:'2026-07-05T09:30',
+     items:{tables:5,chairs:24,coolers:0,speakers:0}, price:90, paid:90, status:'Completed', notes:'Drop off Friday night, pick up 9:30am'},
+    {id:3, customer:'Lleana Salamanca', phone:'', address:'1326 Greenfield Dr', start:'2026-07-05T08:30', end:'2026-07-06T17:00',
+     items:{tables:5,chairs:30,coolers:0,speakers:0}, price:115, paid:115, status:'Completed', notes:'Drop off 8:30am, pick up 5–7pm'}
+  ],
+  leads:[], nextId:4, nextLeadId:1,
+  subs:[], nextSubId:1
+};
+let S;
+try{ S=JSON.parse(localStorage.getItem(KEY)) || structuredClone(seed); }
+catch(e){ S=structuredClone(seed); }
+S.settings=S.settings||{orderUrl:''};
+if(S.settings.orderUrl==='https://raysrental.com/order.html') S.settings.orderUrl='';
+
+/* ---------------- migration (additive only) ----------------
+   Older saved stores have rev/leads/nextId/bookings/settings/inventory/nextLeadId
+   but no subs list. Add the two missing keys and touch nothing else — bookings,
+   leads, inventory and settings are never rebuilt, reset or reordered here.
+   rev is deliberately NOT bumped: rev is owned by save(), and bumping it on load
+   would make a stale device look newer than the cloud and push over real data. */
+function migrateStore(st){
+  if(!st || typeof st!=='object') return st;
+  if(!Array.isArray(st.subs)) st.subs=[];
+  const maxId=st.subs.reduce((m,x)=>Math.max(m,(+x?.id||0)),0);
+  if(typeof st.nextSubId!=='number' || !isFinite(st.nextSubId) || st.nextSubId<=maxId) st.nextSubId=maxId+1;
+  /* quotes arrived after subs. Same rules: add the two missing keys, leave every
+     existing key exactly where and how it was. Quote ids start at 1001 so a quote
+     number can never be mistaken for a booking id in a text message. */
+  if(!Array.isArray(st.quotes)) st.quotes=[];
+  const maxQid=st.quotes.reduce((m,x)=>Math.max(m,(+x?.id||0)),0);
+  if(typeof st.nextQuoteId!=='number' || !isFinite(st.nextQuoteId) || st.nextQuoteId<=maxQid) st.nextQuoteId=Math.max(1001, maxQid+1);
+  return st;
+}
+migrateStore(S);
+function orderPageUrl(){
+  if(S.settings.orderUrl) return S.settings.orderUrl;
+  if(location.protocol!=='file:') return new URL('order.html',location.href).href;
+  return '';
+}
+function save(){
+  S.rev=(S.rev||0)+1;
+  localStorage.setItem(KEY, JSON.stringify(S));
+  if(syncReady){ setSyncBadge('saving'); clearTimeout(pushTimer); pushTimer=setTimeout(cloudPush,1200); }
+}
+
+/* ---------------- live cloud sync (Supabase) ---------------- */
+const SYNC={
+  url:'https://pwanlphumbpnmmcuwnup.supabase.co/rest/v1/app_state',
+  key:'sb_publishable_5Wd5bMXKnQ2PR5ZVpBJCug_Io5WdvG4',
+  id:'main'
+};
+let syncReady=false, pushTimer=null;
+const syncOn = location.protocol!=='file:';
+function syncHeaders(){ return {apikey:SYNC.key, Authorization:'Bearer '+SYNC.key, 'Content-Type':'application/json'}; }
+function setSyncBadge(state){
+  const b=document.getElementById('syncBadge'); if(!b) return;
+  const map={synced:['#7ee2a8','Synced'], saving:['#f4c467','Saving…'], offline:['#aab4c8','Offline'], local:['#aab4c8','Local only']};
+  const [c,t]=map[state]||map.offline;
+  b.innerHTML='<span style="color:'+c+'">●</span> '+t;
+}
+async function cloudPull(){
+  try{
+    const r=await fetch(SYNC.url+'?id=eq.'+SYNC.id+'&select=data,updated_at',{headers:syncHeaders()});
+    if(!r.ok) return undefined;
+    const rows=await r.json();
+    return rows[0]||null;      // null = reachable but no row yet
+  }catch(e){ return undefined; } // undefined = offline/error
+}
+async function cloudPush(){
+  try{
+    const r=await fetch(SYNC.url+'?on_conflict=id',{method:'POST',
+      headers:{...syncHeaders(),Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify([{id:SYNC.id, data:S, updated_at:new Date().toISOString()}])});
+    setSyncBadge(r.ok?'synced':'offline');
+  }catch(e){ setSyncBadge('offline'); }
+}
+function applyRemote(remote){
+  S=remote.data;
+  S.settings=S.settings||{orderUrl:''};
+  migrateStore(S);
+  localStorage.setItem(KEY, JSON.stringify(S));
+  render(); applyPinGate();
+}
+async function pollPull(){
+  if(!syncReady) return;
+  const remote=await cloudPull();
+  if(remote && (remote.data.rev||0) > (S.rev||0)){ applyRemote(remote); setSyncBadge('synced'); }
+}
+async function initSync(){
+  if(!syncOn){ setSyncBadge('local'); return; }
+  const remote=await cloudPull();
+  if(remote===undefined){ setSyncBadge('offline'); syncReady=true; return; }
+  if(remote && (remote.data.rev||0) >= (S.rev||0)){ applyRemote(remote); setSyncBadge('synced'); }
+  else { await cloudPush(); } // first device, or local is newer
+  syncReady=true;
+  setInterval(pollPull, 20000);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pollPull(); });
+}
+
+/* ---------------- PIN lock ---------------- */
+function applyPinGate(){
+  const ov=document.getElementById('pinOverlay');
+  if(S.settings?.pin && sessionStorage.getItem('rrUnlocked')!=='1'){ ov.style.display='flex'; }
+  else ov.style.display='none';
+}
+function tryUnlock(){
+  const v=document.getElementById('pinInput').value;
+  if(v===String(S.settings?.pin||'')){ sessionStorage.setItem('rrUnlocked','1'); document.getElementById('pinInput').value=''; applyPinGate(); }
+  else document.getElementById('pinErr').textContent='Wrong PIN';
+}
+function lockOrSetPin(){
+  if(!S.settings.pin){
+    const p=prompt('Set a PIN (4–6 digits). You and Serena will use it to open the app on any device:');
+    if(p&&/^\d{4,6}$/.test(p.trim())){ S.settings.pin=p.trim(); sessionStorage.setItem('rrUnlocked','1'); save(); alert('PIN set. The lock now applies on every device once it syncs.'); }
+    else if(p) alert('PIN must be 4–6 digits.');
+  } else { sessionStorage.removeItem('rrUnlocked'); applyPinGate(); }
+}
+
+/* ---------------- helpers ---------------- */
+const $=id=>document.getElementById(id);
+const fmt$=n=>'$'+(+n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmtDT(s){ if(!s)return'—'; const d=new Date(s);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function fmtD(s){ if(!s)return'—'; return new Date(s).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+function statusTag(st){
+  const cls={'Quote':'quote','Deposit Due':'deposit','Deposit Paid':'deposit','Paid In Full':'paid','Completed':'done','Cancelled':'cancel'}[st]||'quote';
+  return `<span class="tag ${cls}">${st}</span>`; }
+function leadTag(st){
+  const cls={'New':'new','Contacted':'contacted','Quoted':'deposit','Won':'won','Lost':'lost'}[st]||'new';
+  return `<span class="tag ${cls}">${st}</span>`; }
+function overlaps(b,start,end){ return new Date(b.start)<end && new Date(b.end)>start; }
+function activeBookings(){ return S.bookings.filter(b=>b.status!=='Cancelled'); }
+/* confirmed = real money on the books (not just a quote) */
+function confirmedBookings(){ return S.bookings.filter(b=>['Deposit Paid','Paid In Full','Completed'].includes(b.status)); }
+/* gear is only tied up by paid/deposit jobs; Completed = returned, Quote = not locked in */
+function itemsOut(start,end,excludeId){
+  const out={}; S.inventory.forEach(i=>out[i.id]=0);
+  S.bookings.filter(b=>['Deposit Paid','Paid In Full'].includes(b.status)).forEach(b=>{
+    if(b.id===excludeId) return;
+    if(overlaps(b,start,end)) S.inventory.forEach(i=>out[i.id]+= (+b.items?.[i.id]||0));
+  });
+  return out;
+}
+function itemsSummary(items){
+  return S.inventory.map(i=>({n:+items?.[i.id]||0,name:i.name})).filter(x=>x.n>0)
+    .map(x=>`${x.n} ${x.name.replace('6-ft Folding ','').replace('Folding ','').replace('JBL PartyBox ','').toLowerCase()}`).join(', ')||'—';
+}
+
+/* ---------------- navigation helpers ---------------- */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent||'') ||
+  (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+/* single destination: iPhone gets Apple Maps, everything else Google Maps */
+function mapsUrl(addr){
+  const a=encodeURIComponent(String(addr||'').trim());
+  return isIOS ? 'https://maps.apple.com/?daddr='+a+'&dirflg=d'
+               : 'https://www.google.com/maps/dir/?api=1&destination='+a+'&travelmode=driving';
+}
+function openMaps(addr,ev){
+  if(ev) ev.stopPropagation();
+  if(!String(addr||'').trim()){ alert('No address saved on this booking yet.'); return; }
+  window.open(mapsUrl(addr),'_blank');
+}
+function telHref(p){ return 'tel:'+String(p||'').replace(/[^\d+]/g,''); }
+function smsHref(p){ return 'sms:'+String(p||'').replace(/[^\d+]/g,''); }
+async function copyAddr(addr,ev){
+  if(ev) ev.stopPropagation();
+  try{ await navigator.clipboard.writeText(addr); }
+  catch(e){ const t=document.createElement('textarea'); t.value=addr; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+  toast('Address copied');
+}
+function toast(msg){
+  let el=document.getElementById('toast');
+  if(!el){ el=document.createElement('div'); el.id='toast';
+    el.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;z-index:300;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .2s';
+    document.body.appendChild(el); }
+  el.textContent=msg; el.style.opacity='1';
+  clearTimeout(el._t); el._t=setTimeout(()=>el.style.opacity='0',1800);
+}
+/* Chips take a booking id, never an inline address string.
+   Embedding text in an onclick attribute breaks on apostrophes
+   (O'Connor Ridge) because the browser decodes &#39; before parsing JS. */
+function bookingAddr(id){ const b=S.bookings.find(x=>x.id===id); return b?String(b.address||'').trim():''; }
+function openMapsById(id,ev){ if(ev) ev.stopPropagation(); openMaps(bookingAddr(id)); }
+function copyAddrById(id,ev){ if(ev) ev.stopPropagation(); copyAddr(bookingAddr(id)); }
+function addrChip(addr,bookingId){
+  const a=String(addr||'').trim();
+  if(!a) return '<span class="muted">No address</span>';
+  return `<span class="addr-line">`+
+    `<a class="addr-link" href="#" onclick="openMapsById(${bookingId},event);return false" title="Tap for directions">📍 ${esc(a)}</a>`+
+    `<button class="copy-btn" onclick="copyAddrById(${bookingId},event)" title="Copy address">⧉</button></span>`;
+}
+function phoneChip(p){
+  const raw=String(p||'').trim();
+  if(!raw) return '';
+  return `<span class="phone-line"><a href="${telHref(raw)}" onclick="event.stopPropagation()" title="Call">📞 ${esc(raw)}</a>`+
+    `<a class="sms-btn" href="${smsHref(raw)}" onclick="event.stopPropagation()" title="Text">💬</a></span>`;
+}
+/* every stop scheduled today, in the order they happen */
+function todaysStops(){
+  const now=new Date();
+  const s=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const e=new Date(s.getTime()+864e5);
+  const ev=[];
+  confirmedBookings().forEach(b=>{
+    if(!String(b.address||'').trim()) return;
+    const st=new Date(b.start), en=new Date(b.end);
+    if(st>=s&&st<e) ev.push({t:st,kind:'Drop-off',b});
+    if(en>=s&&en<e) ev.push({t:en,kind:'Pick-up',b});
+  });
+  ev.sort((a,c)=>a.t-c.t);
+  return ev;
+}
+/* every stop today, chained into one Google Maps route (multi-stop is Google-only) */
+function openRouteInMaps(){
+  const ev=todaysStops();
+  if(!ev.length){ alert('No stops with addresses scheduled today.'); return; }
+  const addrs=[...new Set(ev.map(x=>x.b.address.trim()))];
+  if(addrs.length===1){ window.open(mapsUrl(addrs[0]),'_blank'); return; }
+  const dest=encodeURIComponent(addrs[addrs.length-1]);
+  const way=addrs.slice(0,-1).map(a=>encodeURIComponent(a)).join('|');
+  window.open('https://www.google.com/maps/dir/?api=1&destination='+dest+'&waypoints='+way+'&travelmode=driving','_blank');
+}
+
+/* ---------------- delivery window texts ----------------
+   A stop's window is the one hour that starts at its scheduled time:
+   4:00pm drop-off -> "4:00-5:00 PM". The meridiem is only printed once
+   when both ends share it, so it reads the way Ray would say it. */
+function fmtT(t){
+  const d=new Date(t); if(isNaN(d)) return '';
+  return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+function windowLabel(t){
+  const d=new Date(t); if(isNaN(d)) return '';
+  const mm=String(d.getMinutes()).padStart(2,'0');
+  const h=d.getHours(), eh=(h+1)%24;
+  const hr=x=>(x%12)||12, ap=x=>x<12?'AM':'PM';
+  const left=hr(h)+':'+mm+(ap(h)===ap(eh)?'':' '+ap(h));
+  return left+'-'+hr(eh)+':'+mm+' '+ap(eh);
+}
+/* 'Drop-off' / 'Pick-up' comes straight off the stop, so the text always
+   matches how the stop is classified everywhere else in the app. */
+function windowMsg(b,kind,t){
+  const first=String(b.customer||'').trim().split(/\s+/)[0]||'there';
+  const day=new Date(t).toLocaleDateString('en-US',{weekday:'long'});
+  const verb=kind==='Pick-up'?'pick up':'drop off';
+  return "Hi "+first+", it's Ray with Ray's Rentals. We'll be there between "+windowLabel(t)+
+    " on "+day+" to "+verb+" your rental. Reply here if that doesn't work. - (469) 571-8720";
+}
+/* apostrophes are legal unencoded but some SMS handlers mangle them, so encode too */
+function windowSmsHref(b,kind,t){
+  const digits=String(b.phone||'').replace(/[^\d+]/g,'');
+  return 'sms:'+digits+'?&body='+encodeURIComponent(windowMsg(b,kind,t)).replace(/'/g,'%27');
+}
+
+/* ---------------- today's route sheet ---------------- */
+function openTodaysRoute(){
+  const ev=todaysStops();
+  if(!ev.length){ alert('No stops with addresses scheduled today.'); return; }
+  renderRouteSheet();
+  $('routeOverlay').classList.add('open');
+}
+function routeStop(e,n){
+  const b=e.b, t=e.t, win=windowLabel(t);
+  const phone=String(b.phone||'').trim();
+  const textBtn = phone
+    ? `<a class="stop-act act-text" href="${esc(windowSmsHref(b,e.kind,t))}" onclick="event.stopPropagation()"
+         title="Text ${esc(b.customer)} a ${esc(win)} window">💬 Text window</a>`
+    : `<span class="stop-act disabled" role="button" aria-disabled="true"
+         title="No phone number on this booking — open Edit booking and add one to text a delivery window">💬 Text window</span>`;
+  return `<div class="stop">
+    <div class="stop-top">
+      <span class="stop-t">${n}. ${esc(fmtT(t))}</span>
+      <span class="pill ${e.kind==='Pick-up'?'pick':'drop'}">${e.kind==='Pick-up'?'PICK-UP':'DROP-OFF'}</span>
+      <b style="flex:1;min-width:0;overflow-wrap:anywhere">${esc(b.customer)}</b>
+    </div>
+    <div class="muted" style="margin-top:5px">Window ${esc(win)} · ${itemsSummary(b.items)}</div>
+    <div style="margin-top:6px">${addrChip(b.address,b.id)}</div>
+    <div class="stop-acts">
+      <a class="stop-act" href="#" onclick="openMapsById(${b.id},event);return false" title="Directions">📍 Maps</a>
+      <button class="stop-act" type="button" onclick="copyAddrById(${b.id},event)" title="Copy address">⧉ Copy address</button>
+      ${textBtn}
+    </div>
+  </div>`;
+}
+function renderRouteSheet(){
+  const ev=todaysStops();
+  const day=new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  $('routeBody').innerHTML =
+    `<p class="muted" style="margin-bottom:11px">${esc(day)} — ${ev.length} stop${ev.length===1?'':'s'}, in the order they happen.</p>`+
+    `<button class="route-btn" type="button" style="width:100%;margin-bottom:12px" onclick="openRouteInMaps()">🚚 Open all stops as one route</button>`+
+    (ev.length? ev.map((e,i)=>routeStop(e,i+1)).join('')
+              : '<div class="empty">No stops with addresses scheduled today.</div>');
+}
+
+/* ---------------- rental terms ----------------
+   Record-keeping only. Wording matches the public site / order form. */
+const TERMS=[
+  'Pricing is per day.',
+  '25% deposit reserves the date, balance due before the event.',
+  'Free pickup at the DFW lot, delivery quoted by location.',
+  'Every table, chair and cooler is wiped down and sanitized after each event.',
+  'Normal wear is fine; significant damage or loss is charged at fair replacement cost, discussed with the customer first.'
+];
+const TERMS_TEXT=TERMS.join('\n');
+async function copyTerms(ev){
+  if(ev) ev.stopPropagation();
+  try{ await navigator.clipboard.writeText(TERMS_TEXT); }
+  catch(e){ const t=document.createElement('textarea'); t.value=TERMS_TEXT; document.body.appendChild(t);
+    t.select(); document.execCommand('copy'); t.remove(); }
+  toast('Rental terms copied');
+}
+/* bookings saved before this feature simply have no terms key */
+function termsDate(at){ const d=new Date(at); return isNaN(d)?'':fmtD(at); }
+function termsLine(b){
+  const t=b&&b.terms;
+  if(t&&t.accepted){
+    const when=termsDate(t.at);
+    return `<div class="terms-line ok" title="${t.by?'Agreed by '+esc(t.by)+' — ':''}record only, not a legal e-signature">`+
+      `✓ Terms recorded${when?' '+esc(when):''}`+
+      `<button class="copy-btn" type="button" onclick="copyTerms(event)" title="Copy the rental terms">📋 Copy terms</button></div>`;
+  }
+  return `<div class="terms-line no">Terms not recorded`+
+    `<button class="copy-btn" type="button" onclick="copyTerms(event)" title="Copy the rental terms">📋 Copy terms</button></div>`;
+}
+
+/* ---------------- nav ---------------- */
+const TABS=['Dashboard','Bookings','Quotes','Calendar','Inventory','Money','Customers','Subs','Leads'];
+let tab='Dashboard', calMonth=new Date(); calMonth.setDate(1);
+function renderNav(){
+  $('nav').innerHTML=TABS.map(t=>`<button class="${t===tab?'active':''}" onclick="go('${t}')">${t}</button>`).join('');
+}
+function go(t){ tab=t; renderNav(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+/* jump to Bookings filtered to one customer */
+function showCustomer(name){ bookingSearch=String(name).toLowerCase(); go('Bookings'); }
+/* jump to the calendar on a given YYYY-MM */
+function showMonth(key){ const [y,m]=key.split('-'); calMonth=new Date(+y,+m-1,1); go('Calendar'); }
+
+/* ---------------- render ---------------- */
+function render(){
+  const m=$('main');
+  if(tab==='Dashboard') m.innerHTML=viewDashboard();
+  else if(tab==='Bookings') m.innerHTML=viewBookings();
+  else if(tab==='Quotes') m.innerHTML=viewQuotes();
+  else if(tab==='Calendar') m.innerHTML=viewCalendar();
+  else if(tab==='Inventory') m.innerHTML=viewInventory();
+  else if(tab==='Money') m.innerHTML=viewMoney();
+  else if(tab==='Customers') m.innerHTML=viewCustomers();
+  else if(tab==='Subs') m.innerHTML=viewSubs();
+  else if(tab==='Leads') m.innerHTML=viewLeads();
+}
+
+/* ---- dashboard ---- */
+function viewDashboard(){
+  const now=new Date(), in7=new Date(now.getTime()+7*864e5);
+  const monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+  const monthRev=confirmedBookings().filter(b=>new Date(b.start)>=monthStart&&new Date(b.start)<new Date(now.getFullYear(),now.getMonth()+1,1))
+    .reduce((s,b)=>s+(+b.price||0),0);
+  const owed=confirmedBookings().reduce((s,b)=>s+Math.max(0,(+b.price||0)-(+b.paid||0)),0);
+  const upcoming=confirmedBookings().filter(b=>new Date(b.end)>=now).length;
+  const outToday=itemsOut(now,new Date(now.getTime()+1));
+  const outStr=S.inventory.map(i=>outToday[i.id]?`${outToday[i.id]} ${i.id}`:null).filter(Boolean).join(', ')||'Nothing out';
+  // schedule events next 7 days
+  let ev=[];
+  activeBookings().forEach(b=>{
+    const s=new Date(b.start), e=new Date(b.end);
+    if(s>=now&&s<=in7) ev.push({t:s,kind:'drop',b});
+    if(e>=now&&e<=in7) ev.push({t:e,kind:'pick',b});
+  });
+  ev.sort((a,c)=>a.t-c.t);
+  const newLeads=S.leads.filter(l=>l.status==='New'||l.status==='Contacted');
+  return `
+  <div class="cards">
+    <div class="stat clickable" onclick="go('Money')"><div class="label">Booked this month</div><div class="value">${fmt$(monthRev)}</div>
+      <div class="hint">${now.toLocaleDateString('en-US',{month:'long'})} events only — other months &amp; quotes not counted</div></div>
+    <div class="stat clickable" onclick="go('Money')"><div class="label">Money owed to you</div><div class="value" style="color:${owed?'var(--red)':'var(--green)'}">${fmt$(owed)}</div><div class="hint">See unpaid balances →</div></div>
+    <div class="stat clickable" onclick="go('Bookings')"><div class="label">Upcoming bookings</div><div class="value">${upcoming}</div><div class="hint">View all bookings →</div></div>
+    <div class="stat clickable" onclick="go('Inventory')"><div class="label">Out right now</div><div class="value" style="font-size:15px;padding-top:8px">${esc(outStr)}</div><div class="hint">Check availability →</div></div>
+  </div>
+  <div class="panel">
+    <h2>Next 7 days — drop-offs &amp; pick-ups
+      <span class="toolbar">
+        ${todaysStops().length?`<button class="route-btn" onclick="openTodaysRoute()" title="See today's stops in order, with delivery-window texts">🚚 Today's route (${todaysStops().length})</button>`:''}
+        <button class="btn accent sm" onclick="openBooking()">+ New booking</button>
+      </span>
+    </h2>
+    ${ev.length? ev.map(e=>`
+      <div class="schedule-item clickable" onclick="openBooking(${e.b.id})" title="Tap to open or edit this booking">
+        <div class="when">${fmtDT(e.t)}</div>
+        <div style="flex:1"><span class="pill ${e.kind}">${e.kind==='drop'?'DROP-OFF':'PICK-UP'}</span>
+          <b>${esc(e.b.customer)}</b><span class="tap-hint">Edit ›</span>
+          <div style="margin:5px 0">${addrChip(e.b.address,e.b.id)} ${phoneChip(e.b.phone)}</div>
+          <div class="muted">${itemsSummary(e.b.items)} · ${fmt$(e.b.price)} ${statusTag(e.b.status)}</div>
+        </div>
+      </div>`).join('') : '<div class="empty">Nothing scheduled in the next 7 days.</div>'}
+  </div>
+  ${dashQuotesPanel()}
+  <div class="panel">
+    <h2>Open leads
+      <span class="toolbar">
+        <button class="btn accent sm" onclick="openLead()">+ New lead</button>
+        <button class="btn sm ghost" onclick="go('Leads')">View all</button>
+      </span>
+    </h2>
+    ${newLeads.length? newLeads.slice(0,5).map(l=>`
+      <div class="schedule-item clickable" onclick="openLead(${l.id})" title="Tap to open or edit this lead"><div class="when">${l.date?fmtD(l.date):'—'}</div>
+      <div style="flex:1"><b>${esc(l.name)}</b> ${leadTag(l.status)}<span class="tap-hint">Edit ›</span><div class="muted">${esc(l.contact||'')} ${esc(l.notes||'')}</div></div></div>`).join('')
+      : '<div class="empty">No open leads. Add quote-form and Marketplace inquiries here so nothing slips.</div>'}
+  </div>`;
+}
+
+/* ---- bookings ---- */
+let bookingSearch='';
+let pastOpen=false;          // remembered across renders so a keystroke doesn't collapse it
+/* one search test, used by both sections */
+function bookingMatch(b){
+  if(!bookingSearch) return true;
+  return String(b.customer||'').toLowerCase().includes(bookingSearch)
+      || String(b.address||'').toLowerCase().includes(bookingSearch);
+}
+/* Display-only split. S.bookings is never sorted or written here — both lists are
+   fresh arrays built by forEach, so the stored order stays byte-for-byte as saved.
+   "Upcoming" = ends today or later (a job ending at 9am today is still today's job). */
+function splitBookings(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const when=b=>{ const d=new Date(b.start||b.end||''); return isNaN(d)?0:d.getTime(); };
+  const upcoming=[], past=[];
+  S.bookings.forEach(b=>{
+    const e=new Date(b.end||b.start||'');
+    (isNaN(e)||e>=today ? upcoming : past).push(b);   // undated jobs stay visible up top
+  });
+  upcoming.sort((a,b)=>when(a)-when(b));   // ascending — soonest job first
+  past.sort((a,b)=>when(b)-when(a));       // descending — most recent first
+  return {upcoming,past};
+}
+function bookingRow(b){
+  const bal=(+b.price||0)-(+b.paid||0);
+  return `
+      <tr class="clickable" onclick="openBooking(${b.id})" title="Tap to open or edit this booking">
+        <td><b>${esc(b.customer)}</b><div style="margin-top:4px">${addrChip(b.address,b.id)}</div>
+          ${b.phone?`<div style="margin-top:4px">${phoneChip(b.phone)}</div>`:''}
+          ${termsLine(b)}</td>
+        <td>${fmtDT(b.start)}</td><td>${fmtDT(b.end)}</td>
+        <td class="muted">${itemsSummary(b.items)}</td>
+        <td>${fmt$(b.price)}</td>
+        <td class="${bal>0?'money-neg':'money-pos'}">${bal>0?fmt$(bal)+' due':'Paid'}</td>
+        <td>${statusTag(b.status)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn sm ghost" onclick="event.stopPropagation();openBooking(${b.id})">Edit</button>
+          <button class="btn sm" onclick="event.stopPropagation();openSend(${b.id})">📤 Send</button>
+        </td>
+      </tr>`;
+}
+function bookingTable(rows,emptyMsg){
+  return `<div style="overflow-x:auto"><table>
+      <tr><th>Customer</th><th>Drop-off</th><th>Pick-up</th><th>Items</th><th>Price</th><th>Balance</th><th>Status</th><th></th></tr>
+      ${rows.map(bookingRow).join('')||`<tr><td colspan="8" class="empty">${emptyMsg}</td></tr>`}
+    </table></div>`;
+}
+function viewBookings(){
+  const {upcoming,past}=splitBookings();
+  const upShown=upcoming.filter(bookingMatch), pastShown=past.filter(bookingMatch);
+  const searching=!!bookingSearch;
+  /* while searching the header shows matches out of the section total */
+  const cnt=(shown,all)=>searching?`${shown.length} of ${all.length}`:`${all.length}`;
+  // reconciliation bar — every dollar in this list, accounted for
+  const now=new Date(), ms=new Date(now.getFullYear(),now.getMonth(),1), nmo=new Date(now.getFullYear(),now.getMonth()+1,1);
+  const conf=confirmedBookings();
+  const p=b=>+b.price||0;
+  const monTot=conf.filter(b=>new Date(b.start)>=ms&&new Date(b.start)<nmo).reduce((s,b)=>s+p(b),0);
+  const futTot=conf.filter(b=>new Date(b.start)>=nmo).reduce((s,b)=>s+p(b),0);
+  const pastTot=conf.filter(b=>new Date(b.start)<ms).reduce((s,b)=>s+p(b),0);
+  const quoteTot=S.bookings.filter(b=>b.status==='Quote').reduce((s,b)=>s+p(b),0);
+  const cancTot=S.bookings.filter(b=>b.status==='Cancelled').reduce((s,b)=>s+p(b),0);
+  const monName=now.toLocaleDateString('en-US',{month:'short'});
+  const recon=`<div class="muted" style="margin-bottom:10px;line-height:1.7"><b>Where every dollar sits:</b> `+
+    `${fmt$(monTot)} this month (${monName}, matches dashboard) · ${fmt$(futTot)} future months · ${fmt$(pastTot)} earlier months`+
+    ` &nbsp;=&nbsp; <b>${fmt$(monTot+futTot+pastTot)} confirmed total</b>`+
+    (quoteTot?` &nbsp;·&nbsp; plus ${fmt$(quoteTot)} in quotes (not counted until deposit)`:'')+
+    (cancTot?` &nbsp;·&nbsp; ${fmt$(cancTot)} cancelled (never counted)`:'')+`</div>`;
+  return `
+  <div class="panel">
+    ${recon}
+    <h2>All bookings
+      <span class="toolbar">
+        <input class="searchbox" placeholder="Search customer / address" value="${esc(bookingSearch)}"
+          oninput="bookingSearch=this.value.toLowerCase();render();document.querySelector('.searchbox').focus();
+          document.querySelector('.searchbox').setSelectionRange(this.value.length,this.value.length)">
+        <button class="btn accent" onclick="openBooking()">+ New booking</button>
+      </span>
+    </h2>
+    ${searching?`<div class="muted" style="margin-bottom:10px">Showing ${upShown.length+pastShown.length} match${upShown.length+pastShown.length===1?'':'es'} across upcoming and past.</div>`:''}
+    <details class="sec" open>
+      <summary><span class="caret">▶</span>Upcoming <span class="n">(${cnt(upShown,upcoming)})</span>
+        <span class="sec-note">Soonest first</span></summary>
+      <div class="sec-body">${bookingTable(upShown, searching?'No upcoming bookings match this search.':'Nothing upcoming.')}</div>
+    </details>
+    <details class="sec" ${searching||pastOpen?'open':''} ontoggle="if(!bookingSearch) pastOpen=this.open">
+      <summary><span class="caret">▶</span>Past <span class="n">(${cnt(pastShown,past)})</span>
+        <span class="sec-note">Most recent first</span></summary>
+      <div class="sec-body">${bookingTable(pastShown, searching?'No past bookings match this search.':'No past bookings.')}</div>
+    </details>
+  </div>`;
+}
+
+/* ---- calendar ---- */
+let calAgenda=false;
+/* how much inventory is committed on a given calendar day */
+function dayLoad(y,mo,d){
+  const s=new Date(y,mo,d), e=new Date(y,mo,d+1);
+  const out={}; S.inventory.forEach(i=>out[i.id]=0);
+  let revenue=0; const list=[];
+  S.bookings.filter(b=>['Deposit Paid','Paid In Full'].includes(b.status)).forEach(b=>{
+    if(!overlaps(b,s,e)) return;
+    S.inventory.forEach(i=>out[i.id]+=(+b.items?.[i.id]||0));
+  });
+  activeBookings().forEach(b=>{
+    if(!overlaps(b,s,e)) return;
+    list.push(b);
+    if(new Date(b.start)>=s&&new Date(b.start)<e) revenue+=(+b.price||0);
+  });
+  /* worst-case utilisation across item types */
+  let pct=0, over=false;
+  S.inventory.forEach(i=>{ if(i.qty>0){ const u=out[i.id]/i.qty; if(u>pct)pct=u; if(out[i.id]>i.qty)over=true; } });
+  return {out,list,revenue,pct:Math.min(pct,1.35),over};
+}
+const SHORT={tables:'T',chairs:'C',coolers:'Co',speakers:'Sp'};
+function loadLabel(out){
+  return S.inventory.map(i=>out[i.id]>0?out[i.id]+(SHORT[i.id]||i.name.slice(0,1)):null).filter(Boolean).join(' · ');
+}
+function viewCalendar(){
+  const y=calMonth.getFullYear(), mo=calMonth.getMonth();
+  const first=new Date(y,mo,1), startDow=first.getDay(), days=new Date(y,mo+1,0).getDate();
+  const today=new Date(); today.setHours(0,0,0,0);
+  // month summary
+  let mBookings=0,mRev=0,busiest={d:null,n:0};
+  for(let d=1;d<=days;d++){
+    const L=dayLoad(y,mo,d);
+    const starts=activeBookings().filter(b=>{const st=new Date(b.start);return st>=new Date(y,mo,d)&&st<new Date(y,mo,d+1);});
+    mBookings+=starts.length; mRev+=L.revenue;
+    if(L.list.length>busiest.n) busiest={d,n:L.list.length};
+  }
+  if(calAgenda) return viewAgenda(y,mo,mBookings,mRev,busiest,days);
+  const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  let cells='';
+  for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell other"></div>`;
+  for(let d=1;d<=days;d++){
+    const dayStart=new Date(y,mo,d), dayEnd=new Date(y,mo,d+1);
+    const L=dayLoad(y,mo,d);
+    const chips=L.list.slice(0,3).map(b=>{
+      const isStart=new Date(b.start)>=dayStart&&new Date(b.start)<dayEnd;
+      const isEnd=new Date(b.end)>=dayStart&&new Date(b.end)<dayEnd;
+      const cls=isStart?'':(isEnd?'pick':'cont');
+      const mark=isStart?' ⬇':(isEnd?' ⬆':'');
+      const tip=`${b.customer} — ${isStart?'drop-off '+fmtDT(b.start):(isEnd?'pick-up '+fmtDT(b.end):'equipment out')}`;
+      return `<span class="cal-chip ${cls}" onclick="event.stopPropagation();openBooking(${b.id})" title="${esc(tip)}">${esc(b.customer.split(' ')[0])}${mark}</span>`;
+    }).join('');
+    const more=L.list.length>3?`<span class="cal-chip cont">+${L.list.length-3} more</span>`:'';
+    const lbl=loadLabel(L.out);
+    const capCls=L.over?'cap-over':(L.pct>=0.7?'cap-tight':'cap-ok');
+    const bar=L.list.length?`<div class="cap-bar"><div class="cap-fill ${capCls}" style="width:${Math.round(Math.min(L.pct,1)*100)}%"></div></div>`:'';
+    cells+=`<div class="cal-cell ${dayStart.getTime()===today.getTime()?'today':''}" onclick="openDay(${y},${mo},${d})" title="Tap to see this day">
+      <div class="d"><span>${d}</span>${L.revenue?`<span class="rev">${fmt$(L.revenue)}</span>`:''}</div>
+      ${chips}${more}
+      ${lbl?`<div class="cal-items">${lbl}</div>`:''}${bar}</div>`;
+  }
+  return `
+  <div class="panel">
+    <div class="cal-head">
+      <button class="btn ghost sm" onclick="calMonth.setMonth(calMonth.getMonth()-1);render()">‹ Prev</button>
+      <span><b>${calMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</b>
+        <button class="btn sm ghost" style="margin-left:8px" onclick="calMonth=new Date();calMonth.setDate(1);render()">Today</button>
+        <button class="btn sm ghost agenda-toggle" onclick="calAgenda=true;render()">☰ List view</button></span>
+      <button class="btn ghost sm" onclick="calMonth.setMonth(calMonth.getMonth()+1);render()">Next ›</button>
+    </div>
+    <div class="cal-sum">
+      <div><span>Bookings</span><b>${mBookings}</b></div>
+      <div><span>Booked revenue</span><b>${fmt$(mRev)}</b></div>
+      <div><span>Busiest day</span><b>${busiest.d?calMonth.toLocaleDateString('en-US',{month:'short'})+' '+busiest.d+' ('+busiest.n+')':'—'}</b></div>
+    </div>
+    <div class="cal-grid">${dows}${cells}</div>
+    <div class="cal-legend">
+      <span class="lg"><i class="cap-ok"></i> Room to spare</span>
+      <span class="lg"><i class="cap-tight"></i> Getting tight (70%+)</span>
+      <span class="lg"><i class="cap-over"></i> Overbooked</span>
+      <span class="lg">⬇ drop-off</span><span class="lg">⬆ pick-up</span>
+      <span class="lg">T=tables · C=chairs · Co=coolers · Sp=speaker</span>
+    </div>
+    <div class="muted" style="margin-top:8px">Tap any day to see what's booked and what's still free. Tap a name to open that booking.</div>
+  </div>`;
+}
+function viewAgenda(y,mo,mBookings,mRev,busiest,days){
+  const rows=[];
+  for(let d=1;d<=days;d++){
+    const L=dayLoad(y,mo,d);
+    if(!L.list.length) continue;
+    const capCls=L.over?'cap-over':(L.pct>=0.7?'cap-tight':'cap-ok');
+    rows.push(`<div class="schedule-item clickable" onclick="openDay(${y},${mo},${d})">
+      <div class="when">${new Date(y,mo,d).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
+      <div style="flex:1"><b>${L.list.length} booking${L.list.length>1?'s':''}</b>${L.revenue?` · <span class="money-pos">${fmt$(L.revenue)}</span>`:''}
+        <div class="muted">${L.list.map(b=>esc(b.customer)).join(', ')}</div>
+        <div class="cal-items" style="margin-top:4px">${loadLabel(L.out)||'—'}</div>
+        <div class="cap-bar" style="max-width:220px"><div class="cap-fill ${capCls}" style="width:${Math.round(Math.min(L.pct,1)*100)}%"></div></div>
+      </div></div>`);
+  }
+  return `<div class="panel">
+    <div class="cal-head">
+      <button class="btn ghost sm" onclick="calMonth.setMonth(calMonth.getMonth()-1);render()">‹ Prev</button>
+      <span><b>${calMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</b>
+        <button class="btn sm ghost agenda-toggle" style="margin-left:8px" onclick="calAgenda=false;render()">▦ Grid view</button></span>
+      <button class="btn ghost sm" onclick="calMonth.setMonth(calMonth.getMonth()+1);render()">Next ›</button>
+    </div>
+    <div class="cal-sum">
+      <div><span>Bookings</span><b>${mBookings}</b></div>
+      <div><span>Booked revenue</span><b>${fmt$(mRev)}</b></div>
+      <div><span>Busiest day</span><b>${busiest.d?calMonth.toLocaleDateString('en-US',{month:'short'})+' '+busiest.d+' ('+busiest.n+')':'—'}</b></div>
+    </div>
+    ${rows.join('')||'<div class="empty">Nothing booked this month.</div>'}
+  </div>`;
+}
+/* ---- day detail panel ---- */
+let dayPanelDate=null;
+function openDay(y,mo,d){
+  dayPanelDate={y,mo,d};
+  const L=dayLoad(y,mo,d);
+  const dt=new Date(y,mo,d);
+  $('dayTitle').textContent=dt.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const avail=S.inventory.map(i=>{
+    const free=i.qty-(L.out[i.id]||0);
+    const col=free<0?'var(--red)':(free===0?'var(--accent)':'var(--green)');
+    return `<div class="avail-cell"><div class="n" style="color:${col}">${free}</div>
+      <div class="l">${esc(i.name.replace('6-ft Folding ','').replace('Folding ','').replace('JBL PartyBox ',''))} free</div>
+      <div class="l" style="margin-top:2px">${L.out[i.id]||0} of ${i.qty} out</div></div>`;
+  }).join('');
+  const books=L.list.length? L.list.map(b=>{
+    const isStart=new Date(b.start)>=new Date(y,mo,d)&&new Date(b.start)<new Date(y,mo,d+1);
+    const isEnd=new Date(b.end)>=new Date(y,mo,d)&&new Date(b.end)<new Date(y,mo,d+1);
+    const when=isStart?`Drop-off ${fmtDT(b.start)}`:(isEnd?`Pick-up ${fmtDT(b.end)}`:'Equipment out all day');
+    return `<div class="day-book">
+      <div class="top"><div><b>${esc(b.customer)}</b><div class="muted">${when}</div></div>
+        <div style="text-align:right"><div>${fmt$(b.price)}</div>${statusTag(b.status)}</div></div>
+      <div class="muted" style="margin-top:6px">${itemsSummary(b.items)}</div>
+      <div style="margin-top:8px">${addrChip(b.address,b.id)} ${phoneChip(b.phone)}</div>
+      <div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn sm ghost" onclick="closeDay();openBooking(${b.id})">Open booking</button>
+        <button class="btn sm" onclick="closeDay();openSend(${b.id})">📤 Send</button>
+      </div></div>`;
+  }).join('') : '<div class="empty">Nothing booked this day — everything below is free.</div>';
+  $('dayBody').innerHTML=`
+    <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Still available</div>
+    <div class="avail-grid">${avail}</div>
+    <button class="btn accent" style="width:100%;margin-bottom:16px" onclick="closeDay();calNewBooking(${y},${mo},${d})">+ Add booking on this day</button>
+    <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Booked (${L.list.length})</div>
+    ${books}`;
+  $('dayPanel').classList.add('open');
+}
+function closeDay(){ $('dayPanel').classList.remove('open'); }
+function calNewBooking(y,mo,d){
+  const p=n=>String(n).padStart(2,'0');
+  const start=`${y}-${p(mo+1)}-${p(d)}T09:00`;
+  const nx=new Date(y,mo,d+1);
+  const end=`${nx.getFullYear()}-${p(nx.getMonth()+1)}-${p(nx.getDate())}T09:00`;
+  openBooking(null,{start,end});
+}
+
+/* ---- inventory ---- */
+function viewInventory(){
+  const now=new Date(), dayEnd=new Date(now.getTime()+1);
+  const out=itemsOut(now,dayEnd);
+  return `
+  <div class="panel">
+    <h2>Inventory &amp; availability</h2>
+    <div style="overflow-x:auto"><table>
+      <tr><th>Item</th><th>You own</th><th>$/day</th><th>Out right now</th><th>Available now</th><th></th></tr>
+      ${S.inventory.map((i,ix)=>`
+      <tr class="inv-row">
+        <td><input value="${esc(i.name)}" onchange="S.inventory[${ix}].name=this.value;save()"></td>
+        <td><input type="number" min="0" value="${i.qty}" onchange="S.inventory[${ix}].qty=+this.value;save();render()"></td>
+        <td><input type="number" min="0" step="0.5" value="${i.price}" onchange="S.inventory[${ix}].price=+this.value;save()"></td>
+        <td>${out[i.id]||0}</td>
+        <td class="${(i.qty-(out[i.id]||0))<=0?'money-neg':'money-pos'}">${i.qty-(out[i.id]||0)}</td>
+        <td>${['tables','chairs','coolers','speakers'].includes(i.id)?'':`<button class="btn sm danger" onclick="S.inventory.splice(${ix},1);save();render()">✕</button>`}</td>
+      </tr>`).join('')}
+    </table></div>
+    <div style="margin-top:12px"><button class="btn ghost" onclick="addInvItem()">+ Add item type</button></div>
+    <div class="muted" style="margin-top:10px">Update "You own" to your real counts — availability checks use these numbers. Only <b>Deposit Paid</b> and <b>Paid In Full</b> bookings tie up gear; quotes and completed (returned) jobs don't.</div>
+  </div>
+  <div class="panel">
+    <h2>Check a future date</h2>
+    <div class="frow">
+      <div><label>From</label><input type="datetime-local" id="chk_start"></div>
+      <div><label>To</label><input type="datetime-local" id="chk_end"></div>
+    </div>
+    <button class="btn" onclick="checkDate()">Check availability</button>
+    <div id="chk_result" style="margin-top:12px"></div>
+  </div>`;
+}
+function addInvItem(){
+  const name=prompt('Item name (e.g., "Canopy Tent 10x10"):'); if(!name)return;
+  S.inventory.push({id:'itm'+Date.now(), name, qty:1, price:0}); save(); render();
+}
+function checkDate(){
+  const s=$('chk_start').value, e=$('chk_end').value;
+  if(!s||!e){ $('chk_result').innerHTML='<span class="muted">Pick both dates.</span>'; return; }
+  const out=itemsOut(new Date(s), new Date(e));
+  $('chk_result').innerHTML='<table><tr><th>Item</th><th>Booked out</th><th>Available</th></tr>'+
+    S.inventory.map(i=>{const av=i.qty-(out[i.id]||0);
+      return `<tr><td>${esc(i.name)}</td><td>${out[i.id]||0}</td><td class="${av<=0?'money-neg':'money-pos'}">${av}</td></tr>`;}).join('')+'</table>';
+}
+
+/* ---- money ---- */
+function viewMoney(){
+  const now=new Date(), yStart=new Date(now.getFullYear(),0,1);
+  const bks=confirmedBookings(); // money math only counts deposit-paid, paid, or completed jobs — not quotes
+  const collected=bks.reduce((s,b)=>s+(+b.paid||0),0);
+  const booked=bks.reduce((s,b)=>s+(+b.price||0),0);
+  const owed=Math.max(0,booked-collected);
+  const ytd=bks.filter(b=>new Date(b.start)>=yStart).reduce((s,b)=>s+(+b.paid||0),0);
+  // by month
+  const byMonth={};
+  bks.forEach(b=>{const d=new Date(b.start), k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    byMonth[k]=(byMonth[k]||0)+(+b.price||0);});
+  const months=Object.keys(byMonth).sort().reverse();
+  const unpaid=bks.filter(b=>(+b.price||0)-(+b.paid||0)>0);
+  return `
+  <div class="cards">
+    <div class="stat"><div class="label">Collected (all time)</div><div class="value money-pos">${fmt$(collected)}</div></div>
+    <div class="stat"><div class="label">Collected ${now.getFullYear()}</div><div class="value">${fmt$(ytd)}</div></div>
+    <div class="stat"><div class="label">Total booked value</div><div class="value">${fmt$(booked)}</div></div>
+    <div class="stat"><div class="label">Outstanding</div><div class="value ${owed>0?'money-neg':'money-pos'}">${fmt$(owed)}</div></div>
+  </div>
+  <div class="panel">
+    <h2>Unpaid balances</h2>
+    ${unpaid.length? `<table><tr><th>Customer</th><th>Event</th><th>Price</th><th>Paid</th><th>Balance due</th><th></th></tr>`+
+      unpaid.map(b=>`<tr class="clickable" onclick="openBooking(${b.id})" title="Tap to record a payment"><td><b>${esc(b.customer)}</b></td><td>${fmtD(b.start)}</td><td>${fmt$(b.price)}</td><td>${fmt$(b.paid)}</td>
+      <td class="money-neg">${fmt$((+b.price||0)-(+b.paid||0))}</td>
+      <td><button class="btn sm ghost" onclick="event.stopPropagation();openBooking(${b.id})">Update</button></td></tr>`).join('')+'</table>'
+    : '<div class="empty">Everyone\'s paid up. 🎉</div>'}
+  </div>
+  <div class="panel">
+    <h2>Revenue by month</h2>
+    <table><tr><th>Month</th><th>Booked</th></tr>
+    ${months.map(k=>{const [yy,mm]=k.split('-');const nm=new Date(+yy,+mm-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+      return `<tr class="clickable" onclick="showMonth('${k}')" title="Tap to see this month on the calendar"><td>${nm}</td><td>${fmt$(byMonth[k])}</td></tr>`;}).join('')||'<tr><td colspan="2" class="empty">No data yet.</td></tr>'}
+    </table>
+  </div>`;
+}
+
+/* ---- customers ---- */
+function viewCustomers(){
+  const map={};
+  confirmedBookings().forEach(b=>{
+    const k=b.customer.trim().toLowerCase();
+    if(!map[k]) map[k]={name:b.customer, phone:b.phone, n:0, total:0, last:b.start};
+    map[k].n++; map[k].total+=(+b.paid||0); // total spent = money actually collected
+    if(new Date(b.start)>new Date(map[k].last)) {map[k].last=b.start; if(b.phone) map[k].phone=b.phone;}
+  });
+  const list=Object.values(map).sort((a,b)=>b.total-a.total);
+  return `
+  <div class="panel">
+    <h2>Customers <span class="muted">(built automatically from bookings)</span></h2>
+    <table><tr><th>Name</th><th>Phone</th><th>Bookings</th><th>Total spent</th><th>Last event</th></tr>
+    ${list.map(c=>`<tr class="clickable" onclick="showCustomer('${esc(c.name).replace(/'/g,"\\'")}')" title="Tap to see this customer's bookings"><td><b>${esc(c.name)}</b>${c.n>1?' <span class="tag paid">repeat</span>':''}</td>
+      <td>${esc(c.phone||'—')}</td><td>${c.n}</td><td>${fmt$(c.total)}</td><td>${fmtD(c.last)}</td></tr>`).join('')
+      ||'<tr><td colspan="5" class="empty">No customers yet.</td></tr>'}
+    </table>
+    <div class="muted" style="margin-top:10px">Repeat customers are your review-askers and referral engines — text them first for next season.</div>
+  </div>`;
+}
+
+/* ---- leads ---- */
+function viewLeads(){
+  const list=[...S.leads].sort((a,b)=>(b.id-a.id));
+  return `
+  <div class="panel">
+    <h2>Leads <button class="btn accent" onclick="openLead()">+ New lead</button></h2>
+    <table><tr><th>Name</th><th>Contact</th><th>Event date</th><th>Status</th><th>Notes</th><th></th></tr>
+    ${list.map(l=>`<tr class="clickable" onclick="openLead(${l.id})" title="Tap to open or edit this lead">
+      <td><b>${esc(l.name)}</b></td><td>${esc(l.contact||'—')}</td><td>${l.date?fmtD(l.date):'—'}</td>
+      <td>${leadTag(l.status)}</td><td class="muted">${esc(l.notes||'')}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm ghost" onclick="event.stopPropagation();openLead(${l.id})">Edit</button>
+        <button class="btn sm" onclick="event.stopPropagation();convertLead(${l.id})">→ Booking</button>
+      </td></tr>`).join('')||'<tr><td colspan="6" class="empty">No leads yet. Log every quote-form email and Marketplace message here.</td></tr>'}
+    </table>
+  </div>`;
+}
+
+/* ---- subs (subcontractors) ---- */
+const SUB_AREAS=['Dallas','Fort Worth','Arlington','Plano','Garland','Irving','Mesquite','Grand Prairie','Cedar Hill','DeSoto','Duncanville','Waxahachie','Red Oak'];
+const SUB_GEAR=['Tables','Chairs','Tents/Canopies','Linens','Coolers','Speakers/AV','Inflatables','Staging/Dance floor','Restrooms','Generators'];
+const JOB_MSG_TEMPLATE="Job available: [date] in [city]. Need [items]. Can you cover it? - Ray, Ray's Rentals (469) 571-8720";
+let subSearch='', subAreaFilter='', subGearFilter='', subShowInactive=false;
+let composerOpen=false, jobMsg=JOB_MSG_TEMPLATE, subsPasteText='', pendingRestore=null;
+
+/* option lists = the standard cities/gear plus anything Ray typed under "Other" */
+function subOptions(base,key){
+  const extra=[];
+  S.subs.forEach(x=>(x[key]||[]).forEach(v=>{
+    v=String(v||'').trim();
+    if(v && !base.includes(v) && !extra.includes(v)) extra.push(v);
+  }));
+  extra.sort((a,b)=>a.localeCompare(b));
+  return base.concat(extra);
+}
+function filteredSubs(){
+  const q=subSearch.trim().toLowerCase();
+  return [...S.subs]
+    .filter(x=>subShowInactive || x.active!==false)
+    .filter(x=>!subAreaFilter || (x.areas||[]).includes(subAreaFilter))
+    .filter(x=>!subGearFilter || (x.gear||[]).includes(subGearFilter))
+    .filter(x=>!q || [x.name,x.company,x.notes].some(v=>String(v||'').toLowerCase().includes(q)))
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+}
+function subCard(x){
+  const phone=String(x.phone||'').trim(), email=String(x.email||'').trim();
+  const acts=[];
+  if(phone) acts.push(`<a class="act-call" href="${telHref(phone)}" title="Call ${esc(x.name)}">📞 Call</a>`);
+  if(phone) acts.push(`<a class="act-text" href="${smsHref(phone)}" title="Text ${esc(x.name)}">💬 Text</a>`);
+  if(email) acts.push(`<a class="act-mail" href="mailto:${esc(email.replace(/\s+/g,''))}" title="Email ${esc(x.name)}">✉ Email</a>`);
+  const areaChips=(x.areas||[]).map(a=>`<span class="chip area">${esc(a)}</span>`).join('');
+  const gearChips=(x.gear||[]).map(g=>`<span class="chip gear">${esc(g)}</span>`).join('');
+  const chips=(areaChips?`<div>${areaChips}</div>`:'')+(gearChips?`<div style="margin-top:2px">${gearChips}</div>`:'');
+  return `<div class="sub-card ${x.active===false?'inactive':''}">
+    <div class="top">
+      <div><b style="font-size:15px">${esc(x.name||'(no name)')}</b>${x.active===false?' <span class="tag done">inactive</span>':''}
+        ${x.company?`<div class="muted">${esc(x.company)}</div>`:''}</div>
+      <div style="text-align:right">${phone?`<div class="muted">${esc(phone)}</div>`:''}${email?`<div class="muted">${esc(email)}</div>`:''}</div>
+    </div>
+    ${chips?`<div style="margin-top:9px">${chips}</div>`:'<div class="muted" style="margin-top:9px">No areas or gear saved yet — tap Edit to add them.</div>'}
+    ${x.notes?`<div class="muted" style="margin-top:7px;line-height:1.5">${esc(x.notes)}</div>`:''}
+    ${acts.length?`<div class="sub-actions">${acts.join('')}</div>`
+      :'<div class="muted" style="margin-top:9px">No phone or email saved — add one to call, text or email from here.</div>'}
+    <div class="sub-edit-row">
+      <button class="btn sm ghost" onclick="openSub(${x.id})">Edit</button>
+      <button class="btn sm danger" onclick="deleteSubById(${x.id})">Delete</button>
+    </div>
+  </div>`;
+}
+function subsListHtml(){
+  const list=filteredSubs();
+  const total=S.subs.length;
+  const hiddenInactive=S.subs.filter(x=>x.active===false).length;
+  const count=`<div class="muted" style="margin-bottom:10px"><b>${list.length} sub${list.length===1?'':'s'} match</b>`+
+    (total?` · ${total} saved in total`:'')+
+    (!subShowInactive&&hiddenInactive?` · ${hiddenInactive} inactive hidden`:'')+`</div>`;
+  if(!total) return count+'<div class="empty">No subs saved yet. Add the crews you already trust — one per area — so a far-away or oversized job is one tap away.</div>';
+  if(!list.length) return count+'<div class="empty">No subs match those filters. Clear the search, area or gear filter to see more.</div>';
+  return count+list.map(subCard).join('');
+}
+function applySubFilters(){ const el=$('subsList'); if(el) el.innerHTML=subsListHtml(); }
+function clearSubFilters(){
+  subSearch=''; subAreaFilter=''; subGearFilter=''; subShowInactive=false; render();
+}
+function viewSubs(){
+  const areaOpts=subOptions(SUB_AREAS,'areas'), gearOpts=subOptions(SUB_GEAR,'gear');
+  const opt=(v,sel)=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v)}</option>`;
+  return `
+  <details class="panel" ${composerOpen?'open':''} ontoggle="composerOpen=this.open">
+    <summary style="cursor:pointer;font-size:15px;font-weight:700;list-style:none">📝 Job message — write it once, then text it to each sub</summary>
+    <div style="margin-top:12px">
+      <label>Message (edit the parts in brackets)</label>
+      <textarea id="jobMsg" rows="4" oninput="jobMsg=this.value">${esc(jobMsg)}</textarea>
+      <div class="toolbar" style="margin-top:10px">
+        <button class="btn accent" onclick="copyJobMsg(this)">📋 Copy message</button>
+        <button class="btn ghost" onclick="resetJobMsg()">Reset to template</button>
+      </div>
+      <div class="muted" style="margin-top:10px">Copy it once, then tap <b>Text</b> on each sub below and paste. One text per sub — group SMS links behave differently on every phone, so this keeps it predictable.</div>
+    </div>
+  </details>
+  <div class="panel">
+    <h2>Subcontractors
+      <span class="toolbar"><button class="btn accent" onclick="openSub()">+ New sub</button></span>
+    </h2>
+    <div class="sub-filters">
+      <input class="searchbox" style="max-width:none" placeholder="Search name, company or notes" value="${esc(subSearch)}"
+        oninput="subSearch=this.value;applySubFilters()">
+      <select onchange="subAreaFilter=this.value;applySubFilters()">
+        <option value="">All areas</option>${areaOpts.map(a=>opt(a,subAreaFilter)).join('')}
+      </select>
+      <select onchange="subGearFilter=this.value;applySubFilters()">
+        <option value="">All gear</option>${gearOpts.map(g=>opt(g,subGearFilter)).join('')}
+      </select>
+    </div>
+    <div class="toolbar" style="margin-bottom:12px;justify-content:space-between">
+      <span class="toggle-row"><input type="checkbox" id="subShowInactive" ${subShowInactive?'checked':''}
+        onchange="subShowInactive=this.checked;applySubFilters()"><label for="subShowInactive">Show inactive subs</label></span>
+      ${(subSearch||subAreaFilter||subGearFilter||subShowInactive)?'<button class="btn sm ghost" onclick="clearSubFilters()">Clear filters</button>':''}
+    </div>
+    <div id="subsList">${subsListHtml()}</div>
+  </div>
+  <div class="panel">
+    <h2>Backup / restore subs</h2>
+    <div class="muted" style="margin-bottom:12px">This app keeps everything on the device it was typed on. Copy the sub list here, paste it on your other phone or tablet, and both have the same crew list. This section only ever touches subs — bookings, leads and inventory are never included or changed.</div>
+    <div class="toolbar"><button class="btn ghost" onclick="copySubsJson(this)">📋 Copy subs (${S.subs.length})</button></div>
+    <label style="margin-top:14px">Paste a sub list here to restore it</label>
+    <textarea id="subsPaste" rows="4" placeholder='[{"name":"Marco Ruiz","company":"MR Party Co","phone":"(469) 555-0142","areas":["Waxahachie"],"gear":["Tents/Canopies"]}]'
+      style="font-size:12px" oninput="subsPasteText=this.value">${esc(subsPasteText)}</textarea>
+    <div class="toolbar" style="margin-top:10px"><button class="btn" onclick="restoreSubs()">Restore</button></div>
+    <div id="restoreMsg" style="margin-top:10px"></div>
+  </div>`;
+}
+
+/* ---- job message composer ---- */
+async function copyToClipboard(text){
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ await navigator.clipboard.writeText(text); return true; } }catch(e){}
+  try{
+    const t=document.createElement('textarea');
+    t.value=text; t.style.position='fixed'; t.style.top='-1000px';
+    document.body.appendChild(t); t.focus(); t.select();
+    const ok=document.execCommand('copy'); t.remove(); return ok;
+  }catch(e){ return false; }
+}
+function flashBtn(btn,label){
+  if(!btn) return;
+  const old=btn.dataset.label||btn.textContent;
+  btn.dataset.label=old; btn.textContent=label;
+  clearTimeout(btn._t); btn._t=setTimeout(()=>{ btn.textContent=btn.dataset.label; },1600);
+}
+async function copyJobMsg(btn){
+  jobMsg=$('jobMsg')?$('jobMsg').value:jobMsg;
+  const ok=await copyToClipboard(jobMsg);
+  flashBtn(btn, ok?'✓ Copied!':'⚠ Copy failed');
+  toast(ok?'Message copied — now tap Text on each sub':'Could not copy — select the text and copy it manually');
+}
+function resetJobMsg(){
+  jobMsg=JOB_MSG_TEMPLATE;
+  if($('jobMsg')) $('jobMsg').value=jobMsg;
+  toast('Template reset');
+}
+
+/* ---- sub modal logic ---- */
+let editingSubId=null;
+function checkRow(prefix,options,selected){
+  return options.map((v,i)=>`<label><input type="checkbox" id="${prefix}_${i}" value="${esc(v)}" ${selected.includes(v)?'checked':''}>${esc(v)}</label>`).join('');
+}
+function openSub(id){
+  editingSubId=id||null;
+  const x=id? S.subs.find(v=>v.id===id) : {};
+  if(id&&!x) return;
+  $('subModalTitle').textContent=id?'Edit sub':'New sub';
+  $('s_name').value=x.name||''; $('s_company').value=x.company||'';
+  $('s_phone').value=x.phone||''; $('s_email').value=x.email||'';
+  $('s_notes').value=x.notes||''; $('s_active').checked=x.active!==false;
+  const areas=(x.areas||[]).map(String), gear=(x.gear||[]).map(String);
+  $('s_areas').innerHTML=checkRow('sa',SUB_AREAS,areas);
+  $('s_gear').innerHTML=checkRow('sg',SUB_GEAR,gear);
+  $('s_areasOther').value=areas.filter(a=>!SUB_AREAS.includes(a)).join(', ');
+  $('s_gearOther').value=gear.filter(g=>!SUB_GEAR.includes(g)).join(', ');
+  $('s_delete').style.display=id?'':'none';
+  $('subOverlay').classList.add('open');
+}
+function readChecks(prefix,options,otherId){
+  const picked=options.filter((v,i)=>$(prefix+'_'+i)&&$(prefix+'_'+i).checked);
+  const extra=String($(otherId).value||'').split(',').map(v=>v.trim()).filter(Boolean);
+  return [...new Set(picked.concat(extra))];
+}
+function saveSub(){
+  const name=$('s_name').value.trim();
+  if(!name){ alert('Enter a name.'); return; }
+  const data={ name, company:$('s_company').value.trim(),
+    phone:$('s_phone').value.trim(), email:$('s_email').value.trim(),
+    areas:readChecks('sa',SUB_AREAS,'s_areasOther'),
+    gear:readChecks('sg',SUB_GEAR,'s_gearOther'),
+    notes:$('s_notes').value.trim(), active:$('s_active').checked };
+  if(editingSubId){ Object.assign(S.subs.find(x=>x.id===editingSubId), data); }
+  else{ data.id=S.nextSubId++; S.subs.push(data); }
+  save(); closeModal('subOverlay'); render();
+}
+function deleteSub(){
+  if(!confirm('Delete this sub?')) return;
+  S.subs=S.subs.filter(x=>x.id!==editingSubId);
+  save(); closeModal('subOverlay'); render();
+}
+function deleteSubById(id){
+  const x=S.subs.find(v=>v.id===id); if(!x) return;
+  if(!confirm('Delete '+(x.name||'this sub')+'?')) return;
+  S.subs=S.subs.filter(v=>v.id!==id);
+  save(); render();
+}
+
+/* ---- backup / restore (subs only) ---- */
+function normalizeSub(r){
+  const arr=v=>Array.isArray(v)
+    ? v.map(x=>String(x==null?'':x).trim()).filter(Boolean)
+    : String(v==null?'':v).split(',').map(x=>x.trim()).filter(Boolean);
+  return { name:String(r.name==null?'':r.name).trim(), company:String(r.company==null?'':r.company).trim(),
+    phone:String(r.phone==null?'':r.phone).trim(), email:String(r.email==null?'':r.email).trim(),
+    areas:[...new Set(arr(r.areas))], gear:[...new Set(arr(r.gear))],
+    notes:String(r.notes==null?'':r.notes).trim(), active:r.active===false?false:true };
+}
+async function copySubsJson(btn){
+  const ok=await copyToClipboard(JSON.stringify(S.subs,null,2));
+  flashBtn(btn, ok?'✓ Copied!':'⚠ Copy failed');
+  toast(ok?S.subs.length+' sub'+(S.subs.length===1?'':'s')+' copied as JSON':'Could not copy — copy it from the box below manually');
+}
+function restoreBad(html){
+  pendingRestore=null;
+  const n=S.subs.length;
+  $('restoreMsg').innerHTML=`<div class="avail-note bad">⚠ ${html}<br>Nothing was changed — your ${n} saved sub${n===1?'':'s'} ${n===1?'is':'are'} still here.</div>`;
+}
+function restoreSubs(){
+  const raw=String(($('subsPaste')&&$('subsPaste').value)||'').trim();
+  pendingRestore=null;
+  if(!raw){ restoreBad('Paste a sub list into the box first.'); return; }
+  let parsed;
+  try{ parsed=JSON.parse(raw); }
+  catch(e){ restoreBad('That is not valid JSON: '+esc(e.message)+'. Copy the whole list, square brackets included.'); return; }
+  if(!Array.isArray(parsed)){ restoreBad('That JSON is not a list of subs — it should start with [ and end with ].'); return; }
+  if(!parsed.length){ restoreBad('That list is empty, so there is nothing to restore.'); return; }
+  for(let i=0;i<parsed.length;i++){
+    const r=parsed[i];
+    if(!r||typeof r!=='object'||Array.isArray(r)){ restoreBad('Entry '+(i+1)+' is not a sub record.'); return; }
+    if(!String(r.name==null?'':r.name).trim()){ restoreBad('Entry '+(i+1)+' has no name. Every sub needs a name.'); return; }
+  }
+  pendingRestore=parsed.map(normalizeSub);
+  const n=pendingRestore.length, have=S.subs.length;
+  $('restoreMsg').innerHTML=
+    `<div class="avail-note">✓ Valid — ${n} sub${n===1?'':'s'} ready to restore. You have ${have} on this device now. Replace or merge?</div>`+
+    `<div class="toolbar">`+
+      `<button class="btn accent" onclick="applyRestore('merge')">Merge — keep both</button>`+
+      `<button class="btn" onclick="applyRestore('replace')">Replace — pasted list wins</button>`+
+      `<button class="btn ghost" onclick="cancelRestore()">Cancel</button>`+
+    `</div>`+
+    `<div class="muted" style="margin-top:8px">Merge matches on phone number (or name + company) and updates those, adding the rest. Either way, only the sub list changes.</div>`;
+}
+function cancelRestore(){
+  pendingRestore=null;
+  $('restoreMsg').innerHTML='<div class="muted">Restore cancelled — nothing changed.</div>';
+}
+function subKey(x){
+  const digits=String(x.phone||'').replace(/[^\d]/g,'');
+  if(digits.length>=10) return 'p:'+digits.slice(-10);
+  const nm=(String(x.name||'').trim()+'|'+String(x.company||'').trim()).toLowerCase();
+  return nm==='|'?'':'n:'+nm;
+}
+function mergeSubInto(target,src){
+  ['name','company','phone','email','notes'].forEach(k=>{ if(String(src[k]||'').trim()) target[k]=src[k]; });
+  target.areas=[...new Set((target.areas||[]).concat(src.areas||[]))];
+  target.gear=[...new Set((target.gear||[]).concat(src.gear||[]))];
+  if(typeof src.active==='boolean') target.active=src.active;
+}
+function applyRestore(mode){
+  if(!pendingRestore){ restoreBad('That list is no longer pending — paste it and tap Restore again.'); return; }
+  const incoming=pendingRestore;
+  if(mode==='replace'){
+    if(S.subs.length && !confirm('Replace all '+S.subs.length+' sub'+(S.subs.length===1?'':'s')+' on this device with the '+incoming.length+' pasted? Bookings, leads and inventory are not touched.')) return;
+    S.subs=incoming.map((r,i)=>Object.assign({},r,{id:i+1}));
+    S.nextSubId=S.subs.length+1;
+    pendingRestore=null; subsPasteText='';
+    save(); render();
+    toast('Replaced — '+S.subs.length+' sub'+(S.subs.length===1?'':'s')+' on this device');
+    return;
+  }
+  let added=0, updated=0;
+  incoming.forEach(r=>{
+    const key=subKey(r);
+    const match=key? S.subs.find(x=>subKey(x)===key) : null;
+    if(match){ mergeSubInto(match,r); updated++; }
+    else{ S.subs.push(Object.assign({},r,{id:S.nextSubId++})); added++; }
+  });
+  pendingRestore=null; subsPasteText='';
+  save(); render();
+  toast('Merged — '+added+' added, '+updated+' updated');
+}
+
+/* ================= QUOTES =================
+   Ray builds a quote here, texts the customer the agreement link, the customer
+   signs on raysrental.com/agreement/. That page is already live and recomputes
+   its own totals from the link payload, so the rates and the day count below
+   are pinned literals that must stay in step with it -- they are deliberately
+   NOT read from S.inventory prices, which Ray is free to edit for his own
+   internal costing without silently changing what a customer sees. */
+const QUOTE_ITEM_IDS=['tables','chairs','coolers','speakers'];
+const QUOTE_RATES={tables:8, chairs:2, coolers:12, speakers:30};
+const QUOTE_LABEL={tables:'tables', chairs:'chairs', coolers:'coolers', speakers:'speakers'};
+const QUOTE_STATUSES=['Draft','Sent','Signed','Lost'];
+const DEFAULT_DELIVERY=150;
+
+function quotes(){ if(!Array.isArray(S.quotes)) S.quotes=[]; return S.quotes; }
+function quoteById(id){ return quotes().find(x=>x.id===id); }
+/* item names follow whatever Ray renamed them to in Inventory; rates do not */
+function quoteItemName(id){ const i=S.inventory.find(x=>x.id===id); return i? i.name : id; }
+function quoteItemOwned(id){ const i=S.inventory.find(x=>x.id===id); return i? (+i.qty||0) : 0; }
+function quoteTag(st){
+  const cls={'Draft':'done','Sent':'new','Signed':'won','Converted':'conv','Lost':'lost'}[st]||'done';
+  return `<span class="tag ${cls}">${esc(st||'Draft')}</span>`;
+}
+
+/* ---- pricing: date parts only, both ends inclusive, never below 1 ---- */
+function quoteDays(start,end){
+  const a=String(start||'').slice(0,10), b=String(end||'').slice(0,10);
+  if(a.length!==10 || b.length!==10) return 1;
+  const d1=new Date(a+'T00:00:00'), d2=new Date(b+'T00:00:00');
+  if(isNaN(d1)||isNaN(d2)) return 1;
+  return Math.max(1, Math.round((d2-d1)/864e5)+1);
+}
+function quoteQty(q,id){ return Math.max(0, Math.round(+q?.items?.[id]||0)); }
+function quoteTotals(q){
+  const days=quoteDays(q&&q.start, q&&q.end);
+  const lines=QUOTE_ITEM_IDS.map(id=>{
+    const qty=quoteQty(q,id), rate=QUOTE_RATES[id];
+    return {id, name:quoteItemName(id), qty, rate, line:qty*rate*days};
+  });
+  const subtotal=lines.reduce((t,l)=>t+l.line,0);
+  const delivery=+(q&&q.delivery)||0, discount=+(q&&q.discount)||0;
+  const total=subtotal+delivery-discount;
+  const deposit=Math.round(total*0.25);
+  return {days, lines, subtotal, delivery, discount, total, deposit, balance:total-deposit};
+}
+
+/* ---- the agreement link: 15 pipe-joined fields, UTF-8, base64url ----
+   Field order is fixed by the live agreement page. Totals and deposit are
+   deliberately absent -- the page derives them, so there is one source of truth. */
+const AGREEMENT_BASE='https://raysrental.com/agreement/';
+function b64url(str){
+  let bin='';
+  if(typeof TextEncoder!=='undefined'){
+    new TextEncoder().encode(str).forEach(b=>{ bin+=String.fromCharCode(b); });
+  } else {
+    bin=unescape(encodeURIComponent(str));   // same UTF-8 bytes, older engines
+  }
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function quotePayload(q){
+  const t=x=>String(x==null?'':x);
+  return [
+    '1',                       /*  0 version literal */
+    t(q.number),               /*  1 quote number    */
+    t(q.customer),             /*  2 customer        */
+    t(q.phone),                /*  3 phone           */
+    t(q.email),                /*  4 email           */
+    t(q.address),              /*  5 address         */
+    t(q.start),                /*  6 start           */
+    t(q.end),                  /*  7 end             */
+    String(quoteQty(q,'tables')),
+    String(quoteQty(q,'chairs')),
+    String(quoteQty(q,'coolers')),
+    String(quoteQty(q,'speakers')),
+    String(+q.delivery||0),    /* 12 delivery fee    */
+    String(+q.discount||0),    /* 13 discount        */
+    t(q.notes)                 /* 14 notes           */
+  ].join('|');
+}
+function agreementLink(q){ return AGREEMENT_BASE+'#q='+b64url(quotePayload(q)); }
+function quoteSmsMsg(q){
+  const first=String(q.customer||'').trim().split(/\s+/)[0]||'there';
+  return 'Hi '+first+", here's your quote and agreement from Ray's Rentals: "+agreementLink(q);
+}
+function quoteSmsHref(q){
+  const digits=String(q.phone||'').replace(/[^\d+]/g,'');
+  return 'sms:'+digits+'?&body='+encodeURIComponent(quoteSmsMsg(q)).replace(/'/g,'%27');
+}
+
+/* ---- availability: reuses itemsOut, the one availability source in the app.
+   A warning never blocks a quote -- Ray covers overflow from his Subs. ---- */
+function quoteAvailWarnings(q){
+  const warn=[];
+  if(!q.start||!q.end) return warn;
+  const s=new Date(q.start), e=new Date(q.end);
+  if(isNaN(s)||isNaN(e)||e<=s) return warn;
+  const out=itemsOut(s,e);
+  QUOTE_ITEM_IDS.forEach(id=>{
+    const want=quoteQty(q,id); if(want<=0) return;
+    const owned=quoteItemOwned(id), taken=+out[id]||0, free=owned-taken;
+    if(want>free) warn.push(`Only ${Math.max(0,free)} of ${owned} ${QUOTE_LABEL[id]} free on those dates &mdash; ${taken} already out.`);
+  });
+  return warn;
+}
+
+/* ---- quote list ---- */
+function quoteStats(){
+  const list=quotes();
+  const n=st=>list.filter(x=>x.status===st).length;
+  const pipeline=list.filter(x=>x.status==='Sent').reduce((t,x)=>t+quoteTotals(x).total,0);
+  return {draft:n('Draft'), sent:n('Sent'), signed:n('Signed'), pipeline, total:list.length};
+}
+function quoteSumHtml(st){
+  return `<div class="q-sum">
+    <div><span>Draft</span><b>${st.draft}</b></div>
+    <div><span>Sent</span><b>${st.sent}</b></div>
+    <div><span>Signed</span><b>${st.signed}</b></div>
+    <div><span>Out for signature</span><b class="${st.pipeline?'money-pos':''}">${fmt$(st.pipeline)}</b></div>
+  </div>`;
+}
+function dashQuotesPanel(){
+  const st=quoteStats();
+  return `<div class="panel">
+    <h2>Quotes pipeline
+      <span class="toolbar">
+        <a class="btn accent sm" href="/quote/" style="text-decoration:none">Generate Quote</a>
+        <button class="btn accent sm" onclick="openQuote()">+ New quote</button>
+        <button class="btn sm ghost" onclick="go('Quotes')">View all</button>
+      </span>
+    </h2>
+    ${quoteSumHtml(st)}
+    <div class="muted" style="margin-top:9px">"Out for signature" is every quote you have sent that nobody has signed yet &mdash; your live pipeline. Signed agreements arrive in your email; tap <b>Mark Signed</b> on the quote when one comes in.</div>
+  </div>`;
+}
+function quoteCard(q){
+  const t=quoteTotals(q);
+  const phone=String(q.phone||'').trim();
+  const acts=[];
+  acts.push(`<button class="q-act prim" type="button" onclick="copyQuoteLink(${q.id},this)">&#128279; Copy link</button>`);
+  acts.push(phone
+    ? `<a class="q-act sms" href="${esc(quoteSmsHref(q))}">&#128172; Text to customer</a>`
+    : `<button class="q-act" type="button" disabled title="No phone number on this quote &mdash; tap Edit and add one to text it.">&#128172; Text to customer</button>`);
+  if(q.status!=='Sent' && q.status!=='Converted')
+    acts.push(`<button class="q-act" type="button" onclick="markQuoteSent(${q.id})">&#128228; Mark Sent</button>`);
+  if(q.status!=='Signed' && q.status!=='Converted')
+    acts.push(`<button class="q-act" type="button" onclick="markQuoteSigned(${q.id})">&#9997; Mark Signed</button>`);
+  acts.push(q.status==='Signed'
+    ? `<button class="q-act go" type="button" onclick="convertQuote(${q.id})">&rarr; Convert to booking</button>`
+    : `<button class="q-act" type="button" disabled title="${q.status==='Converted'?'Already converted to a booking.':'Mark this quote Signed first &mdash; only a signed agreement becomes a booking.'}">&rarr; Convert to booking</button>`);
+  if(q.status==='Converted' && q.bookingId!=null)
+    acts.push(`<button class="q-act" type="button" onclick="openBooking(${q.bookingId})">Open booking</button>`);
+  acts.push(`<button class="q-act" type="button" onclick="openQuote(${q.id})">Edit</button>`);
+  acts.push(`<button class="q-act del" type="button" onclick="deleteQuoteById(${q.id})">Delete</button>`);
+  const stamps=[
+    q.sentAt?'Sent '+fmtD(q.sentAt):'',
+    q.signedAt?'Signed '+fmtD(q.signedAt):''
+  ].filter(Boolean).join(' &middot; ');
+  return `<div class="q-card">
+    <div class="q-top">
+      <div>
+        <b style="font-size:15px">${esc(q.number||'Q-?')}</b> ${quoteTag(q.status)}
+        <div style="font-weight:700;margin-top:3px;font-size:14.5px">${esc(q.customer||'(no name)')}</div>
+        <div class="muted" style="margin-top:3px">${q.start?esc(fmtD(q.start)):'No date'} &middot; ${t.days} day${t.days===1?'':'s'} &middot; ${itemsSummary(q.items)}</div>
+        ${stamps?`<div class="muted" style="margin-top:3px">${stamps}</div>`:''}
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:19px;font-weight:800">${fmt$(t.total)}</div>
+        <div class="muted">${fmt$(t.deposit)} deposit</div>
+      </div>
+    </div>
+    <div class="q-acts">${acts.join('')}</div>
+  </div>`;
+}
+function viewQuotes(){
+  const list=[...quotes()].sort((a,b)=>(b.id-a.id));   /* newest first; S.quotes itself is never reordered */
+  const st=quoteStats();
+  return `
+  <div class="quotes-tab">
+  <div class="panel">
+    <h2>Quotes
+      <span class="toolbar"><a class="btn accent" href="/quote/" style="text-decoration:none">Generate Quote</a><button class="btn accent" onclick="openQuote()">+ New quote</button></span>
+    </h2>
+    ${quoteSumHtml(st)}
+    <div class="muted" style="margin:12px 0 14px;line-height:1.6">Build the quote, tap <b>Copy link</b> or <b>Text to customer</b>, and the customer signs the rental agreement on raysrental.com. The signed copy is emailed to you &mdash; tap <b>Mark Signed</b> here when it arrives, then <b>Convert to booking</b>.</div>
+    ${list.length? list.map(quoteCard).join('') : '<div class="empty">No quotes yet. Tap <b>+ New quote</b> to build one and text it in under a minute.</div>'}
+  </div></div>`;
+}
+
+/* ---- quote builder ---- */
+let editingQuoteId=null;
+function quoteFormData(){
+  const items={};
+  QUOTE_ITEM_IDS.forEach(id=>{ items[id]=Math.max(0, Math.round(+($('qi_'+id)?.value||0)||0)); });
+  return {
+    customer:$('q_customer').value.trim(), phone:$('q_phone').value.trim(),
+    email:$('q_email').value.trim(), address:$('q_address').value.trim(),
+    start:$('q_start').value, end:$('q_end').value, items,
+    delivery:+$('q_delivery').value||0, discount:+$('q_discount').value||0,
+    notes:$('q_notes').value.trim(), status:$('q_status').value||'Draft'
+  };
+}
+function quoteTotalsHtml(t){
+  const lines=t.lines.filter(l=>l.qty>0).map(l=>
+    `<div class="row"><span class="l">${esc(l.name)} &mdash; ${l.qty} &times; ${fmt$(l.rate)} &times; ${t.days} day${t.days===1?'':'s'}</span><span class="v">${fmt$(l.line)}</span></div>`).join('');
+  return (lines||`<div class="row"><span class="l">No items added yet</span><span class="v">${fmt$(0)}</span></div>`)
+    + `<div class="row"><span class="l">Subtotal</span><span class="v">${fmt$(t.subtotal)}</span></div>`
+    + `<div class="row"><span class="l">Delivery &amp; setup</span><span class="v">${fmt$(t.delivery)}</span></div>`
+    + (t.discount>0?`<div class="row"><span class="l">Discount</span><span class="v money-neg">&minus;${fmt$(t.discount)}</span></div>`:'')
+    + `<div class="row big"><span class="l">TOTAL</span><span class="v">${fmt$(t.total)}</span></div>`
+    + `<div class="row"><span class="l">Deposit (25%)</span><span class="v money-pos">${fmt$(t.deposit)}</span></div>`
+    + `<div class="row"><span class="l">Balance due after deposit</span><span class="v">${fmt$(t.balance)}</span></div>`;
+}
+function quoteCalc(){
+  if(!$('q_totals')) return;
+  const d=quoteFormData();
+  $('q_totals').innerHTML=quoteTotalsHtml(quoteTotals(d));
+  const note=$('q_avail'), warn=quoteAvailWarnings(d);
+  if(warn.length){
+    note.innerHTML='&#9888; '+warn.join('<br>')+'<br><span style="font-weight:700">You can still send this quote &mdash; cover the overflow from a sub.</span>';
+    note.style.display='';
+  } else note.style.display='none';
+  if(editingQuoteId){
+    const q=quoteById(editingQuoteId);
+    $('q_link').value=agreementLink(Object.assign({}, d, {number:(q&&q.number)||'Q-'+editingQuoteId}));
+  }
+}
+function openQuote(id){
+  editingQuoteId=id||null;
+  const q=id? quoteById(id) : {};
+  if(id&&!q) return;
+  $('quoteModalTitle').textContent=id? 'Edit '+(q.number||'quote') : 'New quote';
+  const cur=q.status||'Draft';
+  const opts=QUOTE_STATUSES.includes(cur)? QUOTE_STATUSES : QUOTE_STATUSES.concat([cur]);
+  $('q_status').innerHTML=opts.map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('');
+  $('q_customer').value=q.customer||''; $('q_phone').value=q.phone||'';
+  $('q_email').value=q.email||''; $('q_address').value=q.address||'';
+  $('q_start').value=q.start||''; $('q_end').value=q.end||'';
+  $('q_delivery').value = q.delivery==null? DEFAULT_DELIVERY : q.delivery;
+  $('q_discount').value = q.discount==null? 0 : q.discount;
+  $('q_notes').value=q.notes||'';
+  $('q_items').innerHTML=QUOTE_ITEM_IDS.map(k=>`
+    <div><label>${esc(quoteItemName(k))} &middot; ${fmt$(QUOTE_RATES[k])}/day</label>
+      <input type="number" min="0" step="1" id="qi_${k}" value="${quoteQty(q,k)}" oninput="quoteCalc()" onchange="quoteCalc()"></div>`).join('');
+  $('q_delete').style.display=id?'':'none';
+  $('q_linkBox').style.display=id?'':'none';
+  $('q_avail').style.display='none';
+  $('quoteOverlay').classList.add('open');
+  quoteCalc();
+}
+/* Sent/Signed keep their first timestamp when the status is set from the form,
+   so editing a price later never rewrites when the quote actually went out. */
+function stampQuote(q){
+  if(q.status==='Sent'&&!q.sentAt) q.sentAt=new Date().toISOString();
+  if(q.status==='Signed'&&!q.signedAt) q.signedAt=new Date().toISOString();
+}
+function saveQuote(){
+  const d=quoteFormData();
+  if(!d.customer){ alert('Enter a customer name.'); return; }
+  if(editingQuoteId){
+    const q=quoteById(editingQuoteId);
+    if(!q){ closeModal('quoteOverlay'); return; }
+    Object.assign(q, d);
+    stampQuote(q);
+    toast(q.number+' saved');
+  } else {
+    const id=S.nextQuoteId++;
+    const q={ id, number:'Q-'+id, customer:d.customer, phone:d.phone, email:d.email,
+      address:d.address, start:d.start, end:d.end, items:d.items,
+      delivery:d.delivery, discount:d.discount, notes:d.notes,
+      status:d.status||'Draft', created:new Date().toISOString(),
+      sentAt:null, signedAt:null, bookingId:null };
+    stampQuote(q);
+    quotes().push(q);
+    toast(q.number+' created \u2014 '+fmt$(quoteTotals(q).total));
+  }
+  save(); closeModal('quoteOverlay'); render();
+}
+function deleteQuote(){
+  const q=quoteById(editingQuoteId); if(!q){ closeModal('quoteOverlay'); return; }
+  if(!confirm('Delete '+q.number+' for '+(q.customer||'this customer')+'? This cannot be undone.')) return;
+  S.quotes=quotes().filter(x=>x.id!==editingQuoteId);
+  save(); closeModal('quoteOverlay'); render();
+  toast(q.number+' deleted');
+}
+function deleteQuoteById(id){
+  const q=quoteById(id); if(!q) return;
+  if(!confirm('Delete '+q.number+' for '+(q.customer||'this customer')+'? This cannot be undone.')) return;
+  S.quotes=quotes().filter(x=>x.id!==id);
+  save(); render();
+  toast(q.number+' deleted');
+}
+function markQuoteSent(id){
+  const q=quoteById(id); if(!q) return;
+  q.status='Sent'; q.sentAt=new Date().toISOString();
+  save(); render(); toast(q.number+' marked Sent');
+}
+function markQuoteSigned(id){
+  const q=quoteById(id); if(!q) return;
+  q.status='Signed'; q.signedAt=new Date().toISOString();
+  if(!q.sentAt) q.sentAt=q.signedAt;
+  save(); render(); toast(q.number+' marked Signed \u2014 you can convert it to a booking now');
+}
+async function copyQuoteLink(id,btn){
+  const q=quoteById(id); if(!q) return;
+  const ok=await copyToClipboard(agreementLink(q));
+  flashBtn(btn, ok?'✓ Copied!':'⚠ Copy failed');
+  toast(ok? q.number+' agreement link copied' : 'Could not copy — open Edit and copy the link from there');
+}
+async function copyQuoteLinkFromForm(btn){
+  const ok=await copyToClipboard($('q_link').value);
+  flashBtn(btn, ok?'✓ Copied!':'⚠ Copy failed');
+  toast(ok?'Agreement link copied':'Could not copy — select the link and copy it manually');
+}
+/* Converting writes a brand-new booking through the existing nextId counter and
+   the existing booking shape. The quote stays on file, marked Converted. */
+function convertQuote(id){
+  const q=quoteById(id); if(!q) return;
+  if(q.status!=='Signed'){ alert('Mark this quote Signed first — only a signed agreement becomes a booking.'); return; }
+  const t=quoteTotals(q);
+  if(!confirm('Create a booking for '+(q.customer||'this customer')+' at '+fmt$(t.total)+'?\n\n'+q.number+' stays on file, marked Converted.')) return;
+  const items={};
+  QUOTE_ITEM_IDS.forEach(k=>{ items[k]=quoteQty(q,k); });
+  const base=String(q.notes||'').trim();
+  const b={ id:S.nextId++, customer:q.customer, phone:q.phone||'', address:q.address||'',
+    start:q.start||'', end:q.end||'', items, price:t.total, paid:0,
+    status:'Deposit Due', notes:(base? base+' — ':'')+'From '+q.number };
+  S.bookings.push(b);
+  q.status='Converted'; q.bookingId=b.id;
+  save(); render();
+  toast(q.number+' converted \u2014 booking created for '+(q.customer||''));
+}
+
+/* ---------------- booking modal logic ---------------- */
+let editingId=null;
+/* Draft of the terms stamp for the booking open in the form. Ticking the box
+   stamps "now"; an already-accepted booking keeps its original timestamp so
+   editing a price never rewrites when the customer agreed. */
+let termsDraft=null;
+function onTermsToggle(){
+  if($('b_terms').checked){ if(!termsDraft) termsDraft={at:new Date().toISOString()}; }
+  else termsDraft=null;
+  renderTermsHint();
+}
+function renderTermsHint(){
+  $('b_termsHint').textContent = termsDraft
+    ? 'Stamped '+fmtDT(termsDraft.at)
+    : 'Leave unticked if the customer has not agreed yet. Unticking clears the record.';
+}
+function openBooking(id, prefill){
+  editingId=id||null;
+  const b=id? S.bookings.find(x=>x.id===id) : (prefill||{});
+  $('bookingModalTitle').textContent=id?'Edit booking':'New booking';
+  $('b_customer').value=b.customer||''; $('b_phone').value=b.phone||'';
+  $('b_address').value=b.address||''; $('b_start').value=b.start||''; $('b_end').value=b.end||'';
+  $('b_price').value=b.price??''; $('b_paid').value=b.paid??0;
+  $('b_status').value=b.status||'Quote'; $('b_notes').value=b.notes||'';
+  $('b_items').innerHTML=S.inventory.map(i=>`
+    <div><label>${esc(i.name)}</label><input type="number" min="0" id="bi_${i.id}" value="${+b.items?.[i.id]||0}" onchange="updateAvail()"></div>`).join('');
+  const t=b.terms;
+  termsDraft = (t&&t.accepted) ? {at:t.at||new Date().toISOString()} : null;
+  $('b_terms').checked=!!termsDraft;
+  $('b_termsBy').value=(t&&t.by)||'';
+  $('b_termsText').innerHTML=TERMS.map(x=>`<li>${esc(x)}</li>`).join('');
+  renderTermsHint();
+  $('b_delete').style.display=id?'':'none';
+  $('availNote').style.display='none';
+  $('bookingOverlay').classList.add('open');
+  updateAvail();
+}
+function updateAvail(){
+  const s=$('b_start').value, e=$('b_end').value, note=$('availNote');
+  if(!s||!e){ note.style.display='none'; return; }
+  const out=itemsOut(new Date(s), new Date(e), editingId);
+  let problems=[], oks=[];
+  S.inventory.forEach(i=>{
+    const want=+($('bi_'+i.id)?.value||0);
+    const avail=i.qty-(out[i.id]||0);
+    if(want>0){ if(want>avail) problems.push(`${i.name}: need ${want}, only ${Math.max(0,avail)} free`); }
+  });
+  if(problems.length){ note.className='avail-note bad'; note.innerHTML='⚠ Overbooked — '+problems.join(' · '); }
+  else{ note.className='avail-note'; note.innerHTML='✓ All requested items are available for these dates.'; }
+  note.style.display='';
+}
+function suggestPrice(){
+  const s=$('b_start').value, e=$('b_end').value;
+  let days=1;
+  if(s&&e) days=Math.max(1, Math.ceil((new Date(e)-new Date(s))/864e5));
+  let total=0;
+  S.inventory.forEach(i=>{ total += (+($('bi_'+i.id)?.value||0)) * i.price * days; });
+  $('b_price').value=total.toFixed(2);
+}
+function saveBooking(){
+  const customer=$('b_customer').value.trim();
+  if(!customer){ alert('Enter a customer name.'); return; }
+  const items={}; S.inventory.forEach(i=>items[i.id]=+($('bi_'+i.id).value||0));
+  const data={ customer, phone:$('b_phone').value.trim(), address:$('b_address').value.trim(),
+    start:$('b_start').value, end:$('b_end').value, items,
+    price:+$('b_price').value||0, paid:+$('b_paid').value||0,
+    status:$('b_status').value, notes:$('b_notes').value.trim() };
+  /* terms is additive: written only when ticked, deleted outright when not,
+     so untouched bookings keep no terms key at all */
+  const terms = termsDraft
+    ? {accepted:true, at:termsDraft.at, by:$('b_termsBy').value.trim()}
+    : null;
+  let target;
+  if(editingId){ target=S.bookings.find(x=>x.id===editingId); Object.assign(target, data); }
+  else{ data.id=S.nextId++; S.bookings.push(data); target=data; }
+  if(terms) target.terms=terms; else delete target.terms;
+  save(); closeModal('bookingOverlay'); render();
+}
+function deleteBooking(){
+  if(!confirm('Delete this booking?')) return;
+  S.bookings=S.bookings.filter(b=>b.id!==editingId);
+  save(); closeModal('bookingOverlay'); render();
+}
+
+/* ---------------- lead modal logic ---------------- */
+let editingLeadId=null;
+function openLead(id){
+  editingLeadId=id||null;
+  const l=id? S.leads.find(x=>x.id===id) : {};
+  $('leadModalTitle').textContent=id?'Edit lead':'New lead';
+  $('l_name').value=l.name||''; $('l_contact').value=l.contact||'';
+  $('l_date').value=l.date||''; $('l_status').value=l.status||'New'; $('l_notes').value=l.notes||'';
+  $('l_delete').style.display=id?'':'none';
+  $('leadOverlay').classList.add('open');
+}
+function saveLead(){
+  const name=$('l_name').value.trim();
+  if(!name){ alert('Enter a name.'); return; }
+  const data={ name, contact:$('l_contact').value.trim(), date:$('l_date').value,
+    status:$('l_status').value, notes:$('l_notes').value.trim() };
+  if(editingLeadId){ Object.assign(S.leads.find(x=>x.id===editingLeadId), data); }
+  else{ data.id=S.nextLeadId++; S.leads.push(data); }
+  save(); closeModal('leadOverlay'); render();
+}
+function deleteLead(){
+  if(!confirm('Delete this lead?')) return;
+  S.leads=S.leads.filter(l=>l.id!==editingLeadId);
+  save(); closeModal('leadOverlay'); render();
+}
+function convertLead(id){
+  const l=S.leads.find(x=>x.id===id); if(!l) return;
+  l.status='Won'; save();
+  openBooking(null,{ customer:l.name, phone:l.contact, notes:l.notes,
+    start:l.date?l.date+'T09:00':'', end:l.date?l.date+'T18:00':'' });
+}
+
+/* ---------------- send order form ---------------- */
+let sendingId=null;
+function buildOrderLink(b){
+  const it=S.inventory.map(i=>{
+    const q=+b.items?.[i.id]||0;
+    return q>0? [i.name, q, i.price] : null;
+  }).filter(Boolean);
+  const o={id:b.id, c:b.customer, p:b.phone||'', ad:b.address||'', s:b.start, e:b.end,
+    it, pr:+b.price||0, pd:+b.paid||0, no:b.notes||''};
+  const b64=btoa(unescape(encodeURIComponent(JSON.stringify(o))))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return (orderPageUrl()||'https://YOUR-APP.netlify.app/order.html')+'?o='+b64;
+}
+function openSend(id){
+  sendingId=id;
+  const b=S.bookings.find(x=>x.id===id); if(!b) return;
+  $('send_who').textContent=`For ${b.customer} — ${fmtDT(b.start)} · ${fmt$(b.price)}`;
+  $('send_url').value=S.settings.orderUrl||orderPageUrl();
+  refreshSendLink();
+  $('sendOverlay').classList.add('open');
+}
+function refreshSendLink(){
+  const b=S.bookings.find(x=>x.id===sendingId); if(!b) return;
+  const link=buildOrderLink(b);
+  $('send_link').value=link;
+  $('send_preview').href=link;
+  const msg=`Hi ${b.customer.split(' ')[0]}, it's Ray's Rentals! Here's your rental order to review and sign: ${link}`;
+  const digits=(b.phone||'').replace(/[^\d+]/g,'');
+  const smsBtn=$('send_sms');
+  smsBtn.href='sms:'+digits+'?&body='+encodeURIComponent(msg);
+  let hint = digits
+    ? 'The Text button opens your messaging app with the message ready. On a computer, use <b>Copy link</b> and paste it into Google Messages / WhatsApp Web instead.'
+    : '⚠ No phone number on this booking — add one (Edit booking) to text directly, or just copy the link.';
+  if(!orderPageUrl()) hint='⚠ App not deployed yet — this link uses a placeholder address. Once your app is live on Netlify, open it from there (the link fixes itself) or paste your app\'s URL + /order.html in Settings below.<br><br>'+hint;
+  $('send_hint').innerHTML=hint;
+}
+function copyOrderLink(){
+  const t=$('send_link'); t.select(); t.setSelectionRange(0,99999);
+  (navigator.clipboard? navigator.clipboard.writeText(t.value) : Promise.reject())
+    .catch(()=>document.execCommand('copy'));
+  const btn=event.target; const old=btn.textContent;
+  btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent=old,1500);
+}
+
+function closeModal(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+
+renderNav(); render();
+localStorage.setItem(KEY, JSON.stringify(S)); // persist locally without bumping rev at boot
+setSyncBadge(syncOn?'offline':'local');
+initSync();
+applyPinGate();
+
+/* ---------------- PWA install ---------------- */
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  try{ navigator.serviceWorker.register('sw.js'); }catch(e){}
+}
+</script>
+</body>
+</html>
