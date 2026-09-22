@@ -22,6 +22,7 @@ import {
   formatQuoteNumber,
   priceOrder,
   renderQuoteDocument,
+  sanitizePaymentUrl,
 } from '../out/assets/js/quote-doc.js';
 import { assignQuoteNumber } from '../netlify/functions/quote-number.mjs';
 
@@ -32,7 +33,11 @@ const page = readFileSync('out/admin/index.html', 'utf8');
 if (!page.includes('<meta name="robots" content="noindex,nofollow">')) fail('admin: missing noindex,nofollow');
 if (!page.includes('id="generate-quote"')) fail('admin: Generate Quote button is missing');
 if (!page.includes('>Generate Quote<')) fail('admin: button is not labeled Generate Quote');
-if (!page.includes('src="/assets/js/admin-quote.js?v=2"')) fail('admin: page script is missing');
+if (!page.includes('src="/assets/js/admin-quote.js?v=3"')) fail('admin: page script is missing');
+if (!page.includes('id="i-include-square"')) fail('admin: Square payment checkbox is missing');
+if (!page.includes('Include Square payment link')) fail('admin: Square payment label is missing');
+if (!page.includes('id="i-square-url"')) fail('admin: Square payment URL field is missing');
+if (!page.includes('id="square-fields"')) fail('admin: Square payment field wrap is missing');
 if (page.includes('rr-qbar') || page.includes('rr-agreement-handoff')) {
   fail('admin: the public quote bar or agreement handoff leaked onto the staff page');
 }
@@ -66,6 +71,7 @@ for (const [key, want] of Object.entries(expectCents)) {
   if (priced[key] !== want) fail(`LaToya ${key} is ${priced[key]}, expected ${want}`);
 }
 if (!priced.showPromo) fail('LaToya order should include the free cooler');
+if (priced.paymentUrl) fail('LaToya sample must not include a Square payment link by default');
 if (priced.lines.filter((line) => line.name === 'Cooler' && line.free).length !== 1) {
   fail('LaToya order should have exactly one free cooler line');
 }
@@ -115,9 +121,48 @@ for (const needle of [
   if (!html.includes(needle)) fail(`quote document is missing "${needle}"`);
 }
 if (/945/.test(html)) fail('quote document still contains the retired 945 phone number');
+if (html.includes('Pay deposit with Square') || html.includes('class="pay-cta"')) {
+  fail('sample quote without Square still shows a payment CTA');
+}
 if (!html.includes('>—<') && !html.includes('>— </')) {
   // Email is empty on the sample, so the field shows an em dash.
   if (!html.includes('Email</div><div class="field-value">—</div>')) fail('blank email should render an em dash');
+}
+
+const squareUrl = 'https://square.link/u/exampleDeposit';
+const withPay = priceOrder({
+  ...SAMPLE_ORDER,
+  includeSquareLink: true,
+  squarePaymentUrl: squareUrl,
+});
+if (withPay.paymentUrl !== squareUrl) fail(`Square URL was not kept (got ${withPay.paymentUrl})`);
+const payHtml = renderQuoteDocument(withPay, { quoteNumber: 'RR-0917-03', quoteDate: '2026-09-17' });
+if (!payHtml.includes('class="pay-cta"')) fail('quote with Square is missing the pay CTA');
+if (!payHtml.includes(`href="${squareUrl}"`)) fail('Square CTA does not link to the pasted URL');
+if (!payHtml.includes('Pay deposit with Square')) fail('Square CTA label is missing');
+if (!payHtml.includes('target="_blank"') || !payHtml.includes('rel="noopener noreferrer"')) {
+  fail('Square CTA must open in a new tab with noopener');
+}
+if (!payHtml.includes('Opens Square to pay the 20% deposit of $31.40.')) {
+  fail('Square CTA note should mention the deposit amount');
+}
+
+const offWithUrl = priceOrder({
+  ...SAMPLE_ORDER,
+  includeSquareLink: false,
+  squarePaymentUrl: squareUrl,
+});
+if (offWithUrl.paymentUrl) fail('Square URL must be ignored when the checkbox is off');
+const emptyOn = priceOrder({
+  ...SAMPLE_ORDER,
+  includeSquareLink: true,
+  squarePaymentUrl: '   ',
+});
+if (emptyOn.paymentUrl) fail('an empty Square URL must not create a payment CTA');
+if (sanitizePaymentUrl('javascript:alert(1)')) fail('javascript: URLs must be rejected');
+if (sanitizePaymentUrl('not-a-url')) fail('non-URLs must be rejected');
+if (sanitizePaymentUrl('https://square.link/u/ok') !== 'https://square.link/u/ok') {
+  fail('https Square links must pass through');
 }
 
 const hostile = priceOrder({ ...SAMPLE_ORDER, customerName: '<img src=x onerror=alert(1)>' });
@@ -192,4 +237,4 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log('assert-generate-quote: ok, LaToya prices to $157.00 with a $31.40 deposit, RR-MMDD-## increments per Chicago day, /admin/ is unlisted');
+console.log('assert-generate-quote: ok, LaToya prices to $157.00 with a $31.40 deposit, optional Square CTA stays off unless a URL is pasted, RR-MMDD-## increments per Chicago day, /admin/ is unlisted');

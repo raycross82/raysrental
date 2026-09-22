@@ -154,6 +154,16 @@
               <div><label for="i-discount">Discount $</label><input id="i-discount" name="discount" type="number" min="0" step="0.01" value="0" inputmode="decimal"></div>
             </div>
           </div>
+          <div class="gq-card">
+            <h2>Payment</h2>
+            <p class="legend-sub">Leave this off when the deposit is Zelle, Cash App, or cash. Turn it on only when this quote should open Square.</p>
+            <label class="gq-check" for="i-include-square"><input id="i-include-square" type="checkbox"><span>Include Square payment link</span></label>
+            <div id="square-fields" hidden>
+              <label for="i-square-url">Square Payment Link URL</label>
+              <input id="i-square-url" name="squarePaymentUrl" type="url" inputmode="url" placeholder="https://square.link/u/…" autocomplete="off">
+              <p class="legend-sub" style="margin-top:8px">Paste the link from Square. It appears on the quote as “Pay deposit with Square,” next to the deposit amount.</p>
+            </div>
+          </div>
         </div>
         <aside class="summary-card" aria-label="Order total">
           <h3>This order</h3>
@@ -244,6 +254,6 @@
 </div>
 <script src="/assets/js/vendor/html2canvas.min.js"></script>
 <script src="/assets/js/vendor/jspdf.umd.min.js"></script>
-<script type="module" src="/assets/js/admin-quote.js?v=2"></script>
+<script type="module" src="/assets/js/admin-quote.js?v=3"></script>
 </body>
 </html>

@@ -12,6 +12,7 @@ import {
   priceOrder,
   quoteFilename,
   renderQuoteDocument,
+  sanitizePaymentUrl,
 } from './quote-doc.js';
 
 const STORE_KEY = 'rr-quote-seq-v1';
@@ -65,6 +66,13 @@ function readCustom() {
   }));
 }
 
+function syncSquareFields(opts = {}) {
+  const on = $('i-include-square').checked;
+  $('square-fields').hidden = !on;
+  $('i-square-url').disabled = !on;
+  if (on && opts.focus) $('i-square-url').focus({ preventScroll: true });
+}
+
 function readOrder() {
   return {
     customerName: $('i-name').value,
@@ -84,6 +92,8 @@ function readOrder() {
     setup: $('i-setup').value,
     discount: $('i-discount').value,
     includeFreeCooler: $('i-free-cooler').checked,
+    includeSquareLink: $('i-include-square').checked,
+    squarePaymentUrl: $('i-square-url').value,
   };
 }
 
@@ -187,6 +197,9 @@ function applyOrder(order) {
   $('i-setup').value = order.setup == null ? 0 : order.setup;
   $('i-discount').value = order.discount == null ? 0 : order.discount;
   $('i-free-cooler').checked = order.includeFreeCooler !== false;
+  $('i-include-square').checked = !!order.includeSquareLink;
+  $('i-square-url').value = order.squarePaymentUrl || '';
+  syncSquareFields();
   $('custom-lines').replaceChildren();
   for (const row of order.custom || []) addCustomRow(row);
   refresh();
@@ -251,6 +264,12 @@ function validate(order, priced) {
     const raw = $(id).value.trim();
     if (raw && !Number.isFinite(Number(raw))) return 'Delivery, setup, and discount need to be dollar amounts.';
     if (Number(raw) < 0) return 'Delivery, setup, and discount can’t be negative.';
+  }
+  if (order.includeSquareLink) {
+    const typed = String(order.squarePaymentUrl || '').trim();
+    if (typed && !sanitizePaymentUrl(typed)) {
+      return 'The Square link needs to be a full http:// or https:// URL.';
+    }
   }
   return '';
 }
@@ -485,10 +504,14 @@ $('add-line').addEventListener('click', () => {
   addCustomRow();
   refresh();
 });
+$('i-include-square').addEventListener('change', () => {
+  syncSquareFields({ focus: true });
+  persistForm();
+});
 $('load-sample').addEventListener('click', () => {
   applyOrder(SAMPLE_ORDER);
   persistForm();
-  status('Sample order loaded. Generate Quote assigns today’s next number.', '');
+  status('Sample order loaded. Generate Quote assigns today’s next number. Square stays off.', '');
 });
 $('clear-order').addEventListener('click', () => {
   applyOrder({
@@ -499,6 +522,8 @@ $('clear-order').addEventListener('click', () => {
     setup: 0,
     discount: 0,
     includeFreeCooler: true,
+    includeSquareLink: false,
+    squarePaymentUrl: '',
   });
   persistForm();
   status('', '');
@@ -539,6 +564,7 @@ window.addEventListener('resize', fitPreview);
   if (!restored && new URLSearchParams(location.search).get('sample') === '1') {
     applyOrder(SAMPLE_ORDER);
   }
+  syncSquareFields();
   refresh();
   renderLog();
   if (!$('quote-status').textContent) status('Fill in the order, then Generate Quote.', '');

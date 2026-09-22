@@ -45,6 +45,8 @@ export const SAMPLE_ORDER = {
   delivery: 20,
   setup: 25,
   discount: 0,
+  includeSquareLink: false,
+  squarePaymentUrl: '',
 };
 
 const CHICAGO = 'America/Chicago';
@@ -146,6 +148,21 @@ function cleanText(value) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
 }
 
+// Staff paste a Square Payment Link. Only http(s) URLs reach the document —
+// javascript: and other schemes are rejected so a quote never becomes a script.
+export function sanitizePaymentUrl(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return '';
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return '';
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+  return parsed.toString();
+}
+
 function esc(value) {
   return String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -234,6 +251,7 @@ export function priceOrder(input = {}) {
   if (discountCents > 0) summaryRows.push({ label: 'Discount', value: formatMoney(-discountCents) });
 
   const rentalDate = isIsoDate(input.rentalDate) ? String(input.rentalDate).trim() : '';
+  const paymentUrl = input.includeSquareLink ? sanitizePaymentUrl(input.squarePaymentUrl) : '';
 
   return {
     customerName: cleanText(input.customerName),
@@ -246,6 +264,7 @@ export function priceOrder(input = {}) {
     serviceType: cleanText(input.serviceType) || 'Delivery & Setup',
     lines,
     showPromo,
+    paymentUrl,
     summaryRows,
     subtotalCents,
     deliveryCents,
@@ -392,6 +411,27 @@ const QUOTE_CSS = `
   .deposit-box { border: 2px solid #008000; border-radius: 4px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .deposit-box .lbl { font-size: 11px; font-weight: 700; color: #008000; }
   .deposit-box .val { font-size: 13px; font-weight: 800; color: #008000; }
+  .pay-cta {
+    display: block;
+    margin: 8px 0 6px;
+    padding: 9px 12px;
+    background: #002060;
+    color: #fff !important;
+    text-align: center;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    border-radius: 4px;
+    border: 1.5px solid #002060;
+  }
+  .pay-cta-note {
+    font-size: 9px;
+    color: #555;
+    text-align: center;
+    margin-bottom: 6px;
+    line-height: 1.35;
+  }
   .balance-row { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #002060; padding: 2px 2px 0; }
   .doc-footer { margin-top: auto; padding-top: 10px; text-align: center; }
   .footer-rule { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
@@ -416,6 +456,9 @@ export function renderQuoteDocument(priced, options = {}) {
   const rows = priced.summaryRows.map((row) => `<div class="sum-row"><span class="lbl">${esc(row.label)}</span><span class="val">${esc(row.value)}</span></div>`).join('');
   const promo = priced.showPromo
     ? `<div class="promo-box"><img src="${esc(assets.cooler)}" alt=""><div class="promo-text">1 FREE COOLER INCLUDED!</div></div>`
+    : '';
+  const payCta = priced.paymentUrl
+    ? `<a class="pay-cta" href="${esc(priced.paymentUrl)}" target="_blank" rel="noopener noreferrer">Pay deposit with Square</a><div class="pay-cta-note">Opens Square to pay the ${DEPOSIT_PERCENT}% deposit of ${esc(formatMoney(priced.depositCents))}.</div>`
     : '';
 
   return `<!DOCTYPE html>
@@ -508,6 +551,7 @@ export function renderQuoteDocument(priced, options = {}) {
         <div class="sum-divider"></div>
         <div class="sum-total"><span class="lbl">TOTAL</span><span class="val">${esc(formatMoney(priced.totalCents))}</span></div>
         <div class="deposit-box"><span class="lbl">${DEPOSIT_PERCENT}% Deposit to Reserve</span><span class="val">${esc(formatMoney(priced.depositCents))}</span></div>
+        ${payCta}
         <div class="balance-row"><span>Remaining Balance</span><span>${esc(formatMoney(priced.balanceCents))}</span></div>
       </div>
     </div>
