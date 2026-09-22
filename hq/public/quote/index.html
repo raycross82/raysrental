@@ -49,11 +49,11 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
 .catalog-row{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .catalog-row .thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#f4f6f8;flex:0 0 auto}
 .catalog-row .info{flex:1;min-width:0}
-.catalog-row .info b{display:block;color:var(--navy)}
-.catalog-row .info span{display:block;color:var(--ink-soft);font-size:.88rem}
-.rate-field{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);margin:0}
-.rate-field input{width:88px;min-height:48px}
-.qty-ctl{display:flex;align-items:center;gap:6px}
+.catalog-row .info b{display:block;color:var(--navy);overflow-wrap:break-word}
+.catalog-row .info span{display:block;color:var(--ink-soft);font-size:.88rem;overflow-wrap:break-word}
+.rate-field{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);margin:0;flex:0 0 auto}
+.rate-field input{width:88px;max-width:100%;min-height:48px}
+.qty-ctl{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .qty-ctl button{width:48px;height:48px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:1.3rem;font-weight:800;color:var(--navy);cursor:pointer}
 .qty-ctl input{width:64px;text-align:center;padding:8px}
 #quote-log{list-style:none;margin:0;padding:0}
@@ -68,10 +68,28 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
 }
 @media(max-width:900px){
   .gq-layout,.two-col{grid-template-columns:1fr}
-  .catalog-row{flex-wrap:wrap}
   .summary-card{position:static}
   .gq-actions .btn,.gq-actions .gq-text{flex:1 1 100%}
   .gq-actions{position:sticky;bottom:0;z-index:40;background:var(--cream);padding:8px 0}
+}
+@media(max-width:700px){
+  /* Photo and name on the first row. Rate and quantity share the next row,
+     pinned to opposite ends, so they cannot cover the item text. */
+  .catalog-row{
+    display:grid;
+    grid-template-columns:56px minmax(0,1fr);
+    column-gap:12px;
+    row-gap:12px;
+    align-items:start;
+    justify-items:start;
+  }
+  .catalog-row .thumb{grid-column:1;grid-row:1}
+  .catalog-row .info{grid-column:2;grid-row:1;width:auto;min-width:0}
+  .rate-field{grid-column:1 / -1;grid-row:2;align-self:end}
+  .qty-ctl{grid-column:1 / -1;grid-row:2;justify-self:end;align-self:end}
+}
+@media(max-width:350px){
+  .catalog-row .qty-ctl{grid-row:3}
 }
 </style>
 </head>
