@@ -256,8 +256,9 @@ function esc(value) {
     .replace(/'/g, '&#39;');
 }
 
-function catalogLine(image, name, detail, qty, rateCents, qtyUnit) {
+function catalogLine(image, name, detail, qty, rateCents, qtyUnit, id) {
   return {
+    id: id || '',
     image,
     name,
     subs: detail ? [{ text: detail, free: false }] : [],
@@ -277,6 +278,7 @@ function lineRateCents(item, raw) {
 
 function freeCoolerLine() {
   return {
+    id: 'cooler',
     image: 'cooler',
     name: 'Cooler',
     subs: [
@@ -302,7 +304,7 @@ function appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree)
     lines.push(freeCoolerLine());
   }
   if (paidCoolers) {
-    lines.push(catalogLine('cooler', 'Cooler', 'Holds ice + drinks', paidCoolers, coolerRate));
+    lines.push(catalogLine('cooler', 'Cooler', 'Holds ice + drinks', paidCoolers, coolerRate, '', 'cooler'));
   }
   return { showPromo, coolerCents: paidCoolers * coolerRate };
 }
@@ -330,7 +332,7 @@ export function priceOrder(input = {}) {
       if (!q) continue;
       const rate = lineRateCents(item, row && row.rate);
       qualifyingCents += q * rate;
-      pending.push(catalogLine(item.image, item.name, item.detail, q, rate, item.qtyUnit));
+      pending.push(catalogLine(item.image, item.name, item.detail, q, rate, item.qtyUnit, item.id));
     }
     // Cooler sits where the catalog lists it: after the speaker, before ice.
     const coolerAt = pending.findIndex((line) => line.image === 'ice');
@@ -346,9 +348,9 @@ export function priceOrder(input = {}) {
     const chairs = qtyOf(input.chairs, 600);
     const speakers = qtyOf(input.speakers, 6);
     const coolers = qtyOf(input.coolers, 20);
-    if (tables) lines.push(catalogLine('table', 'Folding Table', '6 ft rectangular', tables, RATES.table));
-    if (chairs) lines.push(catalogLine('chair', 'Folding Chair', 'White resin', chairs, RATES.chair));
-    if (speakers) lines.push(catalogLine('speaker', 'JBL PartyBox 110', '', speakers, RATES.speaker));
+    if (tables) lines.push(catalogLine('table', 'Folding Table', '6 ft rectangular', tables, RATES.table, '', 'table'));
+    if (chairs) lines.push(catalogLine('chair', 'Folding Chair', 'White resin', chairs, RATES.chair, '', 'chair'));
+    if (speakers) lines.push(catalogLine('speaker', 'JBL PartyBox 110', '', speakers, RATES.speaker, '', 'speaker'));
     qualifyingCents = tables * RATES.table + chairs * RATES.chair + speakers * RATES.speaker;
     const cooler = appendCoolers(lines, coolers, RATES.cooler, qualifyingCents, includeFree);
     showPromo = cooler.showPromo;
@@ -690,4 +692,252 @@ export function renderQuoteDocument(priced, options = {}) {
 </div>
 </body>
 </html>`;
+}
+
+// --- HQ desk booking + device email/text ---------------------------------
+// Pure helpers for /quote/. The page writes localStorage and posts the same
+// Supabase app_state row the desk uses; nothing here touches the network.
+//
+// Drop-off / pick-up clocks match the choices on the Generate Quote form.
+// "Evening before the event" is 4:00 PM the calendar day before the rental
+// (16:00), the same hour the desk's sample bookings use for an evening drop.
+// "Morning after the event" is 8:00 AM the day after (08:00).
+// Other labeled choices:
+//   Morning of the event     → 9:00 AM on the rental date
+//   Afternoon of the event   → 2:00 PM on the rental date
+//   Before Noon              → 11:00 AM on the rental date
+//   Same night after the event → 9:00 PM on the rental date
+//   Next evening             → 5:00 PM the day after
+//   Not sure yet / TBD       → the form defaults (evening before, morning after)
+// A typed clock ("5:30 PM", "16:00") replaces the label's hour and keeps its day.
+
+const DESK_PER_UNIT = {
+  // Catalog detail is "1 Table + 6 Chairs".
+  'table-set': { tables: 1, chairs: 6 },
+  table: { tables: 1 },
+  chair: { chairs: 1 },
+  speaker: { speakers: 1 },
+  cooler: { coolers: 1 },
+};
+
+const NAME_TO_CATALOG = {
+  "6' Table Set": 'table-set',
+  'Folding Table': 'table',
+  'Folding Chair': 'chair',
+  'JBL PartyBox 110': 'speaker',
+  Cooler: 'cooler',
+};
+
+function parseClock(text) {
+  const s = String(text || '');
+  const ampm = /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i.exec(s);
+  if (ampm) {
+    let h = Number(ampm[1]);
+    const min = ampm[2] ? Number(ampm[2]) : 0;
+    const pm = /^p/i.test(ampm[3]);
+    if (h < 1 || h > 12 || min > 59) return '';
+    if (h === 12) h = pm ? 12 : 0;
+    else if (pm) h += 12;
+    return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  }
+  const h24 = /(?:^|[^\d])([01]?\d|2[0-3]):([0-5]\d)(?!\d)/.exec(s);
+  if (!h24) return '';
+  return `${String(Number(h24[1])).padStart(2, '0')}:${h24[2]}`;
+}
+
+function dropoffPlan(text) {
+  const t = String(text || '').toLowerCase();
+  if (/evening before|night before/.test(t)) return { day: -1, time: '16:00' };
+  if (/morning of/.test(t)) return { day: 0, time: '09:00' };
+  if (/afternoon/.test(t)) return { day: 0, time: '14:00' };
+  if (/before noon|by noon/.test(t)) return { day: 0, time: '11:00' };
+  if (/not sure|\btbd\b/.test(t)) return { day: -1, time: '16:00' };
+  if (/\bbefore\b/.test(t)) return { day: -1, time: '16:00' };
+  return { day: 0, time: '16:00' };
+}
+
+function pickupPlan(text) {
+  const t = String(text || '').toLowerCase();
+  if (/morning after/.test(t)) return { day: 1, time: '08:00' };
+  if (/same night/.test(t)) return { day: 0, time: '21:00' };
+  if (/next evening/.test(t)) return { day: 1, time: '17:00' };
+  if (/not sure|\btbd\b/.test(t)) return { day: 1, time: '08:00' };
+  if (/\b(after|next)\b/.test(t)) return { day: 1, time: '08:00' };
+  return { day: 0, time: '21:00' };
+}
+
+function atLocal(isoDate, hhmm) {
+  return `${isoDate}T${hhmm}`;
+}
+
+export function bookingWindow(rentalDate, dropoff, pickup) {
+  const date = isIsoDate(rentalDate) ? String(rentalDate).trim() : '';
+  if (!date) return { start: '', end: '' };
+  const drop = dropoffPlan(dropoff);
+  const pick = pickupPlan(pickup);
+  let endDate = addDays(date, pick.day);
+  const start = atLocal(addDays(date, drop.day), parseClock(dropoff) || drop.time);
+  const endTime = parseClock(pickup) || pick.time;
+  let end = atLocal(endDate, endTime);
+  // A typed pick-up clock can land before drop-off. Step the end date forward
+  // until the window is real; three days is enough for any of these labels.
+  for (let guard = 0; end <= start && guard < 3; guard += 1) {
+    endDate = addDays(endDate, 1);
+    end = atLocal(endDate, endTime);
+  }
+  return { start, end };
+}
+
+function extraLabel(line) {
+  const qty = Math.round(Number(line.qty) || 0);
+  const unit = line.qtyUnit ? ` ${line.qtyUnit}` : '';
+  const free = line.free ? ' (free)' : '';
+  return `${qty}${unit} ${line.name || 'Item'}${free}`.replace(/\s+/g, ' ').trim();
+}
+
+function centsToDollars(cents) {
+  return Number((Math.round(Number(cents) || 0) / 100).toFixed(2));
+}
+
+export function quoteBookingDraft(priced, quoteNumber) {
+  const order = priced || {};
+  const items = { tables: 0, chairs: 0, coolers: 0, speakers: 0 };
+  const extras = [];
+  for (const line of order.lines || []) {
+    const id = (line && line.id) || NAME_TO_CATALOG[line && line.name] || '';
+    const per = DESK_PER_UNIT[id];
+    const qty = Math.max(0, Math.round(Number(line && line.qty) || 0));
+    if (!qty) continue;
+    if (!per) {
+      extras.push(extraLabel(line));
+      continue;
+    }
+    for (const [key, mult] of Object.entries(per)) items[key] += qty * mult;
+  }
+  const timing = bookingWindow(order.rentalDate, order.dropoff, order.pickup);
+  const number = String(quoteNumber || '').trim();
+  const dropoff = order.dropoff || 'Evening before the event';
+  const pickup = order.pickup || 'Morning after the event';
+  const notes = [
+    number ? `From ${number}.` : '',
+    `Drop-off: ${dropoff}. Pick-up: ${pickup}.`,
+    extras.length ? `Also on quote: ${extras.join(', ')}.` : '',
+  ].filter(Boolean).join(' ');
+  return {
+    customer: order.customerName || '',
+    phone: order.phone || '',
+    address: order.address || '',
+    start: timing.start,
+    end: timing.end,
+    items,
+    price: centsToDollars(order.totalCents),
+    paid: 0,
+    status: 'Deposit Due',
+    notes,
+    quoteNumber: number,
+  };
+}
+
+export function bookingMatchesQuote(booking, quoteNumber) {
+  const number = String(quoteNumber || '').trim();
+  if (!booking || !number) return false;
+  if (String(booking.quoteNumber || '').trim() === number) return true;
+  const notes = String(booking.notes || '');
+  const escaped = number.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|\\s)From ${escaped}(?:\\b|[.\\s]|$)`).test(notes);
+}
+
+// Same additive rules as migrateStore() in hq/public/index.html. rev stays
+// put — only a real save bumps it, or a stale device would look newer than
+// the cloud and push over live bookings.
+export function migrateTrackerStore(st) {
+  if (!st || typeof st !== 'object') return st;
+  if (!Array.isArray(st.subs)) st.subs = [];
+  const maxId = st.subs.reduce((m, x) => Math.max(m, (+x?.id || 0)), 0);
+  if (typeof st.nextSubId !== 'number' || !Number.isFinite(st.nextSubId) || st.nextSubId <= maxId) {
+    st.nextSubId = maxId + 1;
+  }
+  if (!Array.isArray(st.quotes)) st.quotes = [];
+  const maxQid = st.quotes.reduce((m, x) => Math.max(m, (+x?.id || 0)), 0);
+  if (typeof st.nextQuoteId !== 'number' || !Number.isFinite(st.nextQuoteId) || st.nextQuoteId <= maxQid) {
+    st.nextQuoteId = Math.max(1001, maxQid + 1);
+  }
+  return st;
+}
+
+// Mutates store. created is false when this quote number is already a booking
+// (quoteNumber field or a "From RR-…" note). Inventory rows the quote does
+// not use are stored as 0, matching saveBooking() on the desk.
+export function appendQuoteBooking(store, draft) {
+  const S = migrateTrackerStore(store);
+  if (!S || typeof S !== 'object') return { store: S, booking: null, created: false };
+  if (!Array.isArray(S.bookings)) S.bookings = [];
+  const number = draft && draft.quoteNumber;
+  if (!number) return { store: S, booking: null, created: false };
+  const existing = S.bookings.find((b) => bookingMatchesQuote(b, number));
+  if (existing) return { store: S, booking: existing, created: false };
+  const inventory = Array.isArray(S.inventory) ? S.inventory : [];
+  const items = {};
+  for (const inv of inventory) {
+    if (inv && inv.id) items[inv.id] = 0;
+  }
+  const missing = [];
+  for (const [key, qty] of Object.entries((draft && draft.items) || {})) {
+    const n = Math.max(0, Math.round(Number(qty) || 0));
+    items[key] = (Number(items[key]) || 0) + n;
+    if (n > 0 && inventory.length && !inventory.some((inv) => inv && inv.id === key)) {
+      missing.push(`${n} ${key}`);
+    }
+  }
+  let notes = String((draft && draft.notes) || '');
+  if (missing.length) notes = `${notes} Not on the desk inventory list: ${missing.join(', ')}.`.trim();
+  const maxId = S.bookings.reduce((m, b) => Math.max(m, +b?.id || 0), 0);
+  if (typeof S.nextId !== 'number' || !Number.isFinite(S.nextId) || S.nextId <= maxId) S.nextId = maxId + 1;
+  const booking = {
+    id: S.nextId++,
+    customer: (draft && draft.customer) || '',
+    phone: (draft && draft.phone) || '',
+    address: (draft && draft.address) || '',
+    start: (draft && draft.start) || '',
+    end: (draft && draft.end) || '',
+    items,
+    price: Number(draft && draft.price) || 0,
+    paid: 0,
+    status: 'Deposit Due',
+    notes,
+    quoteNumber: number,
+  };
+  S.bookings.push(booking);
+  S.rev = (Number(S.rev) || 0) + 1;
+  return { store: S, booking, created: true };
+}
+
+export function quoteShareSummary(priced, quoteNumber) {
+  const order = priced || {};
+  const first = String(order.customerName || '').trim().split(/\s+/)[0] || 'there';
+  const when = isIsoDate(order.rentalDate) ? formatLongDate(order.rentalDate) : 'the date on the quote';
+  return `Hi ${first}, here's your Ray's Rentals quote ${quoteNumber}: total ${formatMoney(order.totalCents)}, deposit ${formatMoney(order.depositCents)} (20%), rental date ${when}.`;
+}
+
+export function quoteEmailDraft(priced, quoteNumber) {
+  const summary = quoteShareSummary(priced, quoteNumber);
+  const file = quoteFilename(quoteNumber, 'pdf');
+  return {
+    subject: `Ray's Rentals quote ${quoteNumber}`,
+    body: `${summary}\n\nThe PDF downloaded to your Downloads folder as ${file}. Attach that file — the mail app can't attach it from this page.`,
+  };
+}
+
+function encodeBody(body) {
+  return encodeURIComponent(body).replace(/'/g, '%27');
+}
+
+export function quoteSmsHref(phone, body) {
+  const digits = String(phone || '').replace(/[^\d+]/g, '');
+  return `sms:${digits}?&body=${encodeBody(body)}`;
+}
+
+export function quoteMailtoHref(email, subject, body) {
+  const addr = String(email || '').replace(/\s+/g, '');
+  return `mailto:${addr}?subject=${encodeBody(subject)}&body=${encodeBody(body)}`;
 }

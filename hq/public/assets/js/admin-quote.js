@@ -1,23 +1,60 @@
-// Staff "Generate Quote" behavior for /admin/.
+// Staff "Generate Quote" behavior for Rentals HQ /quote/.
 // Prices the order, takes the next RR-MMDD-## number, fills the quote document,
 // keeps an HTML preview on the page, and downloads a letter-size PDF.
+// After a quote exists, staff can save it into the HQ bookings store or open
+// the device Mail and Messages apps. Nothing is sent through a server.
 
 import {
   CATALOG,
   QUOTE_ASSETS,
   SAMPLE_ORDER,
   allocateSeq,
+  appendQuoteBooking,
   chicagoDateParts,
   formatMoney,
   formatQuoteNumber,
+  migrateTrackerStore,
   priceOrder,
+  quoteBookingDraft,
+  quoteEmailDraft,
   quoteFilename,
+  quoteMailtoHref,
+  quoteShareSummary,
+  quoteSmsHref,
   renderQuoteDocument,
   sanitizePaymentUrl,
 } from './quote-doc.js';
 
 const STORE_KEY = 'rr-quote-seq-v1';
 const FORM_KEY = 'rr-quote-form-v1';
+const TRACKER_KEY = 'raysRentalsTracker_v1';
+// Same row the desk posts from hq/public/index.html. Do not invent another.
+const SYNC = {
+  url: 'https://pwanlphumbpnmmcuwnup.supabase.co/rest/v1/app_state',
+  key: 'sb_publishable_5Wd5bMXKnQ2PR5ZVpBJCug_Io5WdvG4',
+  id: 'main',
+};
+// Used only when this browser has never opened Rentals HQ. Matches the desk
+// seed so the first save does not wipe the sample bookings HQ would have created.
+const TRACKER_SEED = {
+  inventory: [
+    { id: 'tables', name: '6-ft Folding Tables', qty: 15, price: 8 },
+    { id: 'chairs', name: 'Folding Chairs', qty: 90, price: 2 },
+    { id: 'coolers', name: 'Drink Coolers', qty: 3, price: 12 },
+    { id: 'speakers', name: 'JBL PartyBox Speaker', qty: 1, price: 30 },
+  ],
+  bookings: [
+    { id: 1, customer: 'Allie Voelkel', phone: '', address: '4571 Bonfire Dr', start: '2026-07-03T16:00', end: '2026-07-05T08:00', items: { tables: 10, chairs: 60, coolers: 2, speakers: 0 }, price: 195, paid: 195, status: 'Completed', notes: 'Drop off 4pm, pick up 8am' },
+    { id: 2, customer: 'Emily Tully', phone: '', address: '431 Mayrant Dr', start: '2026-07-04T00:00', end: '2026-07-05T09:30', items: { tables: 5, chairs: 24, coolers: 0, speakers: 0 }, price: 90, paid: 90, status: 'Completed', notes: 'Drop off Friday night, pick up 9:30am' },
+    { id: 3, customer: 'Lleana Salamanca', phone: '', address: '1326 Greenfield Dr', start: '2026-07-05T08:30', end: '2026-07-06T17:00', items: { tables: 5, chairs: 30, coolers: 0, speakers: 0 }, price: 115, paid: 115, status: 'Completed', notes: 'Drop off 8:30am, pick up 5–7pm' },
+  ],
+  leads: [],
+  nextId: 4,
+  nextLeadId: 1,
+  subs: [],
+  nextSubId: 1,
+  settings: { orderUrl: '' },
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -25,7 +62,10 @@ let assets = { ...QUOTE_ASSETS };
 let memoryStore = { days: {}, issued: [] };
 let lastHtml = '';
 let lastNumber = '';
+let lastPriced = null;
+let savedNumber = '';
 let busy = false;
+let saving = false;
 
 function loadStore() {
   try {
@@ -504,6 +544,9 @@ async function generate() {
     });
     lastHtml = html;
     lastNumber = assigned.number;
+    lastPriced = priced;
+    if (savedNumber !== assigned.number) savedNumber = '';
+    syncShareButtons();
     store.issued = [{
       number: assigned.number,
       customer: priced.customerName,
@@ -581,7 +624,196 @@ $('clear-order').addEventListener('click', () => {
   persistForm();
   status('', '');
 });
+function phoneDigits(value) {
+  return String(value || '').replace(/[^\d+]/g, '');
+}
+
+function syncShareButtons() {
+  const ready = !!(lastNumber && lastPriced);
+  const email = ready && String(lastPriced.email || '').trim();
+  const phone = ready && phoneDigits(lastPriced.phone);
+  const saveBtn = $('save-booking');
+  const emailBtn = $('email-quote');
+  const textBtn = $('text-quote');
+  if (!saveBtn || !emailBtn || !textBtn) return;
+  saveBtn.disabled = !ready || saving;
+  saveBtn.textContent = ready && savedNumber === lastNumber ? 'Saved as booking' : 'Save as booking';
+  emailBtn.disabled = !email;
+  textBtn.disabled = !phone;
+  emailBtn.title = email ? `Email ${lastNumber}` : 'No email on this quote';
+  textBtn.title = phone ? `Text ${lastNumber}` : 'No phone number on this quote';
+  const hint = $('share-hint');
+  if (!hint) return;
+  if (!ready) {
+    hint.textContent = 'Save, email, and text turn on after Generate Quote. Saved bookings show on Rentals HQ.';
+  } else if (savedNumber === lastNumber) {
+    hint.textContent = `${lastNumber} is already a Deposit Due booking. Open HQ to see it.`;
+  } else if (!email && !phone) {
+    hint.textContent = `${lastNumber} is ready. Add a phone or email and generate again to text or email it.`;
+  } else if (!email) {
+    hint.textContent = `${lastNumber} is ready to save or text. No email on this quote.`;
+  } else if (!phone) {
+    hint.textContent = `${lastNumber} is ready to save or email. No phone number on this quote.`;
+  } else {
+    hint.textContent = `${lastNumber} is ready. Save it as a booking, or email / text the summary. Attach the PDF from Downloads.`;
+  }
+}
+
+function toast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.style.cssText = 'position:fixed;left:50%;top:76px;transform:translateX(-50%);background:#1b2a4a;color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:700;z-index:300;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;max-width:min(92vw,440px);text-align:center';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2400);
+}
+
+function syncHeaders() {
+  return { apikey: SYNC.key, Authorization: 'Bearer ' + SYNC.key, 'Content-Type': 'application/json' };
+}
+
+function loadTracker() {
+  let S = null;
+  try {
+    S = JSON.parse(localStorage.getItem(TRACKER_KEY) || 'null');
+  } catch {
+    S = null;
+  }
+  if (!S || typeof S !== 'object' || Array.isArray(S)) S = structuredClone(TRACKER_SEED);
+  if (!S.settings || typeof S.settings !== 'object') S.settings = { orderUrl: '' };
+  migrateTrackerStore(S);
+  if (!Array.isArray(S.bookings)) S.bookings = [];
+  if (!Array.isArray(S.inventory)) S.inventory = structuredClone(TRACKER_SEED.inventory);
+  return S;
+}
+
+async function cloudPull() {
+  if (location.protocol === 'file:') return undefined;
+  const r = await fetch(`${SYNC.url}?id=eq.${SYNC.id}&select=data,updated_at`, {
+    headers: syncHeaders(),
+    signal: AbortSignal.timeout(4000),
+  });
+  if (!r.ok) return undefined;
+  const rows = await r.json();
+  return rows[0] || null;
+}
+
+async function cloudPush(S) {
+  if (location.protocol === 'file:') return false;
+  const r = await fetch(`${SYNC.url}?on_conflict=id`, {
+    method: 'POST',
+    headers: { ...syncHeaders(), Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify([{ id: SYNC.id, data: S, updated_at: new Date().toISOString() }]),
+  });
+  return r.ok;
+}
+
+async function freshestTracker() {
+  const local = loadTracker();
+  // canPush stays false when the pull fails. The desk does the same: an
+  // unanswered cloud read must not POST a local copy over newer bookings.
+  try {
+    const remote = await cloudPull();
+    if (remote === undefined) return { store: local, canPush: false };
+    const remoteRev = remote && remote.data ? Number(remote.data.rev) || 0 : 0;
+    if (remote && remote.data && typeof remote.data === 'object' && remoteRev > (Number(local.rev) || 0)) {
+      const S = remote.data;
+      if (!S.settings || typeof S.settings !== 'object') S.settings = { orderUrl: '' };
+      migrateTrackerStore(S);
+      if (!Array.isArray(S.bookings)) S.bookings = [];
+      if (!Array.isArray(S.inventory)) S.inventory = structuredClone(TRACKER_SEED.inventory);
+      return { store: S, canPush: true };
+    }
+    return { store: local, canPush: true };
+  } catch {
+    return { store: local, canPush: false };
+  }
+}
+
+async function saveAsBooking() {
+  if (saving || !lastPriced || !lastNumber) return;
+  saving = true;
+  syncShareButtons();
+  const number = lastNumber;
+  try {
+    const draft = quoteBookingDraft(lastPriced, number);
+    const { store, canPush } = await freshestTracker();
+    const result = appendQuoteBooking(store, draft);
+    if (!result.created) {
+      savedNumber = number;
+      try {
+        localStorage.setItem(TRACKER_KEY, JSON.stringify(result.store));
+      } catch {
+        /* private mode */
+      }
+      toast(`${number} is already saved as a booking.`);
+      status(`${number} is already on Rentals HQ. Open HQ to see it.`, 'ok');
+      syncShareButtons();
+      return;
+    }
+    try {
+      localStorage.setItem(TRACKER_KEY, JSON.stringify(result.store));
+    } catch {
+      status('This browser blocked saving the booking. Turn private mode off and try again.', 'err');
+      toast('Could not save the booking in this browser.');
+      return;
+    }
+    savedNumber = number;
+    let synced = false;
+    if (canPush) {
+      try {
+        synced = await cloudPush(result.store);
+      } catch {
+        synced = false;
+      }
+    }
+    toast(`${number} saved as a booking.`);
+    status(
+      synced
+        ? `${number} saved as Deposit Due. Open HQ to see it.`
+        : `${number} saved on this device. Cloud sync didn’t finish — it still shows on HQ here.`,
+      'ok',
+    );
+  } catch (err) {
+    status(err && err.message ? err.message : 'Could not save the booking.', 'err');
+  } finally {
+    saving = false;
+    syncShareButtons();
+  }
+}
+
+function emailQuote() {
+  if (!lastPriced || !lastNumber) return;
+  const email = String(lastPriced.email || '').trim();
+  if (!email) {
+    alert('No email on this quote.');
+    status('No email on this quote.', 'err');
+    return;
+  }
+  const draft = quoteEmailDraft(lastPriced, lastNumber);
+  window.location.href = quoteMailtoHref(email, draft.subject, draft.body);
+}
+
+function textQuote() {
+  if (!lastPriced || !lastNumber) return;
+  const phone = String(lastPriced.phone || '').trim();
+  if (!phoneDigits(phone)) {
+    alert('No phone number entered.');
+    status('No phone number entered.', 'err');
+    return;
+  }
+  window.location.href = quoteSmsHref(phone, quoteShareSummary(lastPriced, lastNumber));
+}
+
 $('generate-quote').addEventListener('click', generate);
+$('save-booking').addEventListener('click', saveAsBooking);
+$('email-quote').addEventListener('click', emailQuote);
+$('text-quote').addEventListener('click', textQuote);
 $('download-pdf').addEventListener('click', async () => {
   if (!lastHtml) return;
   $('download-pdf').disabled = true;
@@ -620,5 +852,6 @@ window.addEventListener('resize', fitPreview);
   syncSquareFields();
   refresh();
   renderLog();
+  syncShareButtons();
   if (!$('quote-status').textContent) status('Fill in the order, then Generate Quote.', '');
 })();

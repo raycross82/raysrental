@@ -19,10 +19,19 @@ import {
   SAMPLE_ORDER,
   addDays,
   allocateSeq,
+  appendQuoteBooking,
+  bookingMatchesQuote,
+  bookingWindow,
   chicagoDateParts,
   formatMoney,
   formatQuoteNumber,
+  migrateTrackerStore,
   priceOrder,
+  quoteBookingDraft,
+  quoteEmailDraft,
+  quoteMailtoHref,
+  quoteShareSummary,
+  quoteSmsHref,
   renderQuoteDocument,
   sanitizePaymentUrl,
 } from '../hq/public/assets/js/quote-doc.js';
@@ -61,7 +70,18 @@ const tracker = readFileSync('hq/public/index.html', 'utf8');
 if (!page.includes('<meta name="robots" content="noindex,nofollow">')) fail('hq quote: missing noindex,nofollow');
 if (!page.includes('id="generate-quote"')) fail('hq quote: Generate Quote button is missing');
 if (!page.includes('>Generate Quote<')) fail('hq quote: button is not labeled Generate Quote');
-if (!page.includes('src="/assets/js/admin-quote.js?v=4"')) fail('hq quote: page script is missing');
+if (!page.includes('src="/assets/js/admin-quote.js?v=5"')) fail('hq quote: page script is missing');
+if (!page.includes('id="save-booking"') || !page.includes('>Save as booking<')) fail('hq quote: Save as booking is missing');
+if (!page.includes('id="email-quote"') || !page.includes('>Email<')) fail('hq quote: Email is missing');
+if (!page.includes('id="text-quote"') || !page.includes('>Text<')) fail('hq quote: Text is missing');
+if (!page.includes('id="open-hq"') || !page.includes('id="share-hint"')) fail('hq quote: Open HQ link is missing');
+for (const id of ['save-booking', 'email-quote', 'text-quote']) {
+  const tag = page.match(new RegExp(`<button[^>]*id="${id}"[^>]*>`));
+  if (!tag || !tag[0].includes('disabled')) fail(`hq quote: ${id} should start disabled`);
+}
+if (!page.includes('.btn:disabled') || !page.includes('min-height:48px')) {
+  fail('hq quote: share buttons need a disabled state and 48px tap targets');
+}
 if (!page.includes('id="catalog-lines"')) fail('hq quote: catalog picker is missing');
 if (!page.includes('Free Delivery &amp; Pickup')) fail('hq quote: Free Delivery & Pickup service is missing');
 if (!page.includes('Pay deposit here')) fail('hq quote: payment helper still uses the old Square label');
@@ -332,6 +352,130 @@ if (first.number !== 'RR-0917-01' || second.number !== 'RR-0917-02') {
 if (bumped.number !== 'RR-0917-08') fail(`minSeq did not skip ahead (got ${bumped.number})`);
 if (nextDay.number !== 'RR-0918-01') fail(`next day did not reset (got ${nextDay.number})`);
 if (ignored.number !== 'RR-0917-09') fail(`a mismatched date was allowed to move the counter (got ${ignored.number})`);
+
+const quoteJs = readFileSync('hq/public/assets/js/admin-quote.js', 'utf8');
+const syncUrl = tracker.match(/url:'([^']+)'/);
+const syncKey = tracker.match(/key:'([^']+)'/);
+const syncId = tracker.match(/\n {2}id:'([^']+)'/);
+if (!syncUrl || !quoteJs.includes(syncUrl[1])) fail('quote save does not reuse the HQ Supabase url');
+if (!syncKey || !quoteJs.includes(syncKey[1])) fail('quote save does not reuse the HQ Supabase key');
+if (!syncId || !quoteJs.includes(syncId[1])) fail('quote save does not reuse the HQ Supabase id');
+if (!quoteJs.includes("TRACKER_KEY = 'raysRentalsTracker_v1'")) fail('quote save uses a different bookings store');
+if (!quoteJs.includes('quoteSmsHref') || !quoteJs.includes('quoteMailtoHref')) fail('quote email/text is not device mailto/sms');
+if (quoteJs.includes('twilio') || quoteJs.includes('gmail.googleapis')) fail('quote send must stay on the device');
+
+const latoya = quoteBookingDraft(priced, 'RR-0917-01');
+if (latoya.status !== 'Deposit Due' || latoya.paid !== 0 || latoya.price !== 157) {
+  fail(`LaToya booking is ${latoya.status} paid ${latoya.paid} price ${latoya.price}`);
+}
+if (latoya.items.tables !== 4 || latoya.items.chairs !== 25 || latoya.items.speakers !== 1 || latoya.items.coolers !== 1) {
+  fail(`LaToya desk counts ${JSON.stringify(latoya.items)}`);
+}
+if (latoya.start !== '2026-09-18T16:00' || latoya.end !== '2026-09-20T08:00') {
+  fail(`LaToya window ${latoya.start} → ${latoya.end}`);
+}
+if (!latoya.notes.startsWith('From RR-0917-01.')) fail(`LaToya notes missing quote number: ${latoya.notes}`);
+if (!latoya.notes.includes('Drop-off: Evening before the event.') || !latoya.notes.includes('Pick-up: Morning after the event.')) {
+  fail(`LaToya notes missing timing: ${latoya.notes}`);
+}
+if (latoya.notes.includes('Also on quote')) fail('mapped LaToya lines should not be repeated in notes');
+if (latoya.customer !== 'LaToya Tucker' || latoya.phone !== '(601) 506-1088') fail('LaToya booking dropped the customer');
+
+const morning = bookingWindow('2026-10-02', 'Morning of the event', 'Same night after the event');
+if (morning.start !== '2026-10-02T09:00' || morning.end !== '2026-10-02T21:00') {
+  fail(`morning/same-night window ${morning.start} → ${morning.end}`);
+}
+const typed = bookingWindow('2026-09-19', 'Evening before the event, 5:30 PM', 'Next evening');
+if (typed.start !== '2026-09-18T17:30' || typed.end !== '2026-09-20T17:00') {
+  fail(`typed clock window ${typed.start} → ${typed.end}`);
+}
+const beforeNoon = bookingWindow('2026-09-19', 'Before Noon', 'TBD');
+if (beforeNoon.start !== '2026-09-19T11:00' || beforeNoon.end !== '2026-09-20T08:00') {
+  fail(`noon/TBD window ${beforeNoon.start} → ${beforeNoon.end}`);
+}
+if (bookingWindow('', 'Evening before the event', 'Morning after the event').start !== '') {
+  fail('a missing rental date should leave the booking window blank');
+}
+
+const mixed = quoteBookingDraft(priceOrder({
+  customerName: 'Mina Cole',
+  phone: '469-555-0100',
+  email: 'mina@example.com',
+  address: '10 Oak St',
+  rentalDate: '2026-10-02',
+  dropoff: 'Morning of the event',
+  pickup: 'Same night after the event',
+  items: [
+    { id: 'table-set', qty: 2, rate: 20 },
+    { id: 'table', qty: 1 },
+    { id: 'chair', qty: 3 },
+    { id: 'tablecloth', qty: 4 },
+    { id: 'runner', qty: 2 },
+    { id: 'ice', qty: 5 },
+    { id: 'speaker', qty: 1 },
+  ],
+}), 'RR-1002-04');
+if (mixed.items.tables !== 3 || mixed.items.chairs !== 15 || mixed.items.speakers !== 1 || mixed.items.coolers !== 1) {
+  fail(`mixed desk counts ${JSON.stringify(mixed.items)}`);
+}
+if (!mixed.notes.includes('4 White Table Cloths') || !mixed.notes.includes('2 Table Runners') || !mixed.notes.includes('5 Bags of Ice')) {
+  fail(`unmapped lines missing from notes: ${mixed.notes}`);
+}
+if (mixed.notes.includes('Table Set') || mixed.notes.includes('JBL')) fail('mapped lines leaked into notes');
+
+const bare = { bookings: [], rev: 2 };
+migrateTrackerStore(bare);
+if (!Array.isArray(bare.subs) || bare.nextSubId !== 1 || !Array.isArray(bare.quotes) || bare.nextQuoteId !== 1001 || bare.rev !== 2) {
+  fail('migrateTrackerStore changed rev or skipped subs/quotes');
+}
+
+const desk = {
+  rev: 3,
+  nextId: 4,
+  bookings: [{ id: 1, customer: 'A', notes: '', quoteNumber: '' }],
+  inventory: [
+    { id: 'tables', name: 'Tables', qty: 15, price: 8 },
+    { id: 'chairs', name: 'Chairs', qty: 90, price: 2 },
+    { id: 'coolers', name: 'Coolers', qty: 3, price: 12 },
+    { id: 'speakers', name: 'Speakers', qty: 1, price: 30 },
+    { id: 'tent', name: 'Tent', qty: 1, price: 40 },
+  ],
+};
+const firstSave = appendQuoteBooking(desk, latoya);
+if (!firstSave.created || firstSave.booking.id !== 4 || firstSave.store.nextId !== 5 || firstSave.store.rev !== 4) {
+  fail(`first save id ${firstSave.booking && firstSave.booking.id} rev ${firstSave.store.rev}`);
+}
+if (firstSave.booking.items.tent !== 0 || firstSave.booking.items.tables !== 4 || firstSave.booking.paid !== 0) {
+  fail(`saved items ${JSON.stringify(firstSave.booking.items)}`);
+}
+const secondSave = appendQuoteBooking(firstSave.store, latoya);
+if (secondSave.created || secondSave.booking.id !== 4 || secondSave.store.rev !== 4 || secondSave.store.bookings.length !== 2) {
+  fail('saving the same quote number created a second booking');
+}
+const byNote = appendQuoteBooking({
+  bookings: [{ id: 9, notes: 'Call first. From RR-0917-01.', customer: 'LaToya Tucker' }],
+  nextId: 10,
+  rev: 1,
+}, latoya);
+if (byNote.created || byNote.booking.id !== 9) fail('a From RR- note should count as already saved');
+if (!bookingMatchesQuote({ quoteNumber: 'RR-0917-01' }, 'RR-0917-01')) fail('quoteNumber match failed');
+if (bookingMatchesQuote({ notes: 'From RR-0917-01' }, 'RR-0917-012')) fail('quote number match was not exact');
+
+const sharePriced = priceOrder({ ...SAMPLE_ORDER, email: 'latoya@example.com' });
+const summary = quoteShareSummary(sharePriced, 'RR-0917-01');
+for (const bit of ['Hi LaToya', 'RR-0917-01', '$157.00', '$31.40', '(20%)', 'September 19, 2026']) {
+  if (!summary.includes(bit)) fail(`share text missing "${bit}"`);
+}
+if (/agreement|https?:\/\//i.test(summary)) fail('share text invented an agreement link');
+const emailed = quoteEmailDraft(sharePriced, 'RR-0917-01');
+if (emailed.subject !== "Ray's Rentals quote RR-0917-01") fail(`email subject ${emailed.subject}`);
+if (!emailed.body.includes('Downloads') || !emailed.body.includes('Rays-Rentals-Quote-RR-0917-01.pdf')) {
+  fail('email body should tell staff to attach the downloaded PDF');
+}
+const sms = quoteSmsHref('(601) 506-1088', summary);
+if (!sms.startsWith('sms:6015061088?&body=') || !sms.includes('%27')) fail(`sms href ${sms.slice(0, 80)}`);
+const mailto = quoteMailtoHref('latoya@example.com', emailed.subject, emailed.body);
+if (!mailto.startsWith('mailto:latoya@example.com?subject=') || !mailto.includes('body=')) fail('mailto href is wrong');
 
 if (problems.length) {
   console.error('assert-generate-quote: Generate Quote is inconsistent:');
