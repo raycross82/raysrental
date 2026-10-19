@@ -9,7 +9,7 @@
 export const DEPOSIT_PERCENT = 20;
 export const FREE_COOLER_CENTS = 5000;
 export const VALID_DAYS = 7;
-export const QUOTE_PHONE = '469-571-8720';
+export const QUOTE_PHONE = '469-654-4110';
 export const QUOTE_EMAIL = 'raysrentals1@gmail.com';
 export const QUOTE_WEB = 'raysrental.com';
 

@@ -56,7 +56,7 @@ if (bars !== 1) fail(`${PAGE}: expected 1 quote bar, found ${bars}`);
 
 // Pieces of the bar whose absence would silently change behaviour rather than break it.
 const PARTS = [
-  ['href="sms:+14695718720"', 'the text-quote link lost the phone number'],
+  ['href="sms:+14696544110"', 'the text-quote link lost the phone number'],
   ["'?&body='", 'the text-quote link no longer prefills the message'],
   ['id="rrQbAmount"', 'the live total has no target element'],
   ['id="rrQbReserve"', 'the Reserve button is missing'],
