@@ -1,45 +1,76 @@
-// Single source of truth for the business phone number swap.
+// Single source of truth for the business phone number.
 //
-// The old number is dead: it cannot take calls and cannot take SMS. Any copy of it that
-// survives into the published output is a lost booking, so both the patcher and the
-// assertion below read their patterns from here rather than keeping two lists that can
-// drift apart.
+// Current number: (469) 654-4110, E.164 +14696544110.
 //
-// The pairs are written out literally instead of being generated from a separator-tolerant
-// regex because the replacement has to preserve the exact formatting of whichever style it
-// matched -- "(945) 444-1941" in visible copy must stay parenthesised, "+19454441941" in a
-// tel: href must stay E.164. Order matters: replacement is sequential, so the longer forms
-// have to run before the bare-digit forms that are substrings of them. The old and new
-// numbers share no digit sequence, so a replaced string can never be re-matched by a later
-// pair.
+// Two retired numbers must never reach the published site. The deploy archives still
+// carry area code 945, exchange 444, line 1941. Pages written after that swap carried
+// area code 469, exchange 571, line 8720. patch-phone.mjs rewrites both to the current
+// number after every other injection, and assert-phone.mjs fails the build if either
+// spelling survives. The digit groups stay separate and the full spellings are built
+// from them, so a parenthesised form stays parenthesised and an E.164 form stays
+// E.164. Longer forms run first, before the bare-digit forms that are substrings of
+// them. Neither retired exchange/line appears in the current number, so a replaced
+// string is never matched by a later pair.
 
-export const OLD_DISPLAY = '(945) 444-1941';
-export const NEW_DISPLAY = '(469) 571-8720';
-export const OLD_E164 = '+19454441941';
-export const NEW_E164 = '+14695718720';
+export const NEW_AREA = '469';
+export const NEW_EXCH = '654';
+export const NEW_LINE = '4110';
+export const NEW_DISPLAY = `(${NEW_AREA}) ${NEW_EXCH}-${NEW_LINE}`;
+export const NEW_E164 = `+1${NEW_AREA}${NEW_EXCH}${NEW_LINE}`;
 
-// Longest / most specific first.
-const PAIRS = [
-  ['+1 (945) 444-1941', '+1 (469) 571-8720'],
-  ['+1-945-444-1941', '+1-469-571-8720'],
-  ['+1.945.444.1941', '+1.469.571.8720'],
-  ['+1 945 444 1941', '+1 469 571 8720'],
-  ['1-945-444-1941', '1-469-571-8720'],
-  ['(945) 444-1941', '(469) 571-8720'],
-  ['(945)444-1941', '(469)571-8720'],
-  ['945-444-1941', '469-571-8720'],
-  ['945.444.1941', '469.571.8720'],
-  ['945 444 1941', '469 571 8720'],
-  ['+19454441941', '+14695718720'],
-  ['19454441941', '14695718720'],
-  ['9454441941', '4695718720'],
+// [area, exchange, line] for every number that must be rewritten.
+const RETIRED = [
+  ['945', '444', '1941'],
+  ['469', '571', '8720'],
 ];
 
-// Anything that still reads as the old number after patching, in any separator style.
-const LEFTOVER = /\(?945\)?[-. ]{0,2}444[-. ]{0,2}1941/g;
+const OLD = RETIRED[0];
+export const OLD_DISPLAY = `(${OLD[0]}) ${OLD[1]}-${OLD[2]}`;
+export const OLD_E164 = `+1${OLD[0]}${OLD[1]}${OLD[2]}`;
+
+// Every spelling we will rewrite, in the same order for the retired number and the
+// current number so a dash form is replaced by a dash form.
+function spellings(area, exch, line) {
+  const digits = `${area}${exch}${line}`;
+  return [
+    `+1 (${area}) ${exch}-${line}`,
+    `+1-${area}-${exch}-${line}`,
+    `+1.${area}.${exch}.${line}`,
+    `+1 ${area} ${exch} ${line}`,
+    `1-${area}-${exch}-${line}`,
+    `(${area}) ${exch}-${line}`,
+    `(${area})${exch}-${line}`,
+    `${area}-${exch}-${line}`,
+    `${area}.${exch}.${line}`,
+    `${area} ${exch} ${line}`,
+    `+1${digits}`,
+    `1${digits}`,
+    digits,
+    `%2B1${digits}`,
+    `%2B1-${area}-${exch}-${line}`,
+    `%28${area}%29%20${exch}-${line}`,
+    `%28${area}%29+${exch}-${line}`,
+    `${area}%2D${exch}%2D${line}`,
+    `%28${area}%29${exch}-${line}`,
+  ];
+}
+
+const CURRENT = spellings(NEW_AREA, NEW_EXCH, NEW_LINE);
+const PAIRS = RETIRED.flatMap(([area, exch, line]) =>
+  spellings(area, exch, line).map((from, i) => [from, CURRENT[i]]),
+).sort((a, b) => b[0].length - a[0].length);
+
+function loose(area, exch, line) {
+  return `\\(?${area}\\)?[-. ]{0,2}${exch}[-. ]{0,2}${line}`;
+}
+
+// Anything that still reads as a retired number after patching, in any separator style.
+const LEFTOVER = new RegExp(RETIRED.map(([area, exch, line]) => loose(area, exch, line)).join('|'), 'g');
 
 // File types whose bytes are text we own. Images and fonts are skipped.
-const TEXT_EXT = new Set(['.html', '.htm', '.json', '.xml', '.txt', '.js', '.mjs', '.css', '.svg', '.webmanifest']);
+const TEXT_EXT = new Set([
+  '.html', '.htm', '.json', '.xml', '.txt', '.js', '.mjs', '.css', '.svg', '.webmanifest', '.vcf',
+]);
 
 export const isTextFile = (name) => TEXT_EXT.has(name.slice(name.lastIndexOf('.')).toLowerCase());
 
@@ -55,5 +86,8 @@ export function replacePhone(text) {
   return [out, count];
 }
 
-// Returns the distinct old-number spellings still present in `text`.
-export const findOldPhone = (text) => [...new Set(text.match(LEFTOVER) ?? [])];
+// Returns the distinct retired-number spellings still present in `text`.
+export function findOldPhone(text) {
+  LEFTOVER.lastIndex = 0;
+  return [...new Set(text.match(LEFTOVER) ?? [])];
+}

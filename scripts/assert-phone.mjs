@@ -2,7 +2,7 @@
 //
 // This is the last thing the build does, so it also covers anything a later sed in
 // netlify.toml or a re-uploaded archive reintroduces after scripts/patch-phone.mjs ran.
-// It fails the build rather than warning: a page that still shows (945) 444-1941 looks
+// It fails the build rather than warning: a page that still shows a retired number looks
 // completely fine in a browser and in a deploy preview, and the only symptom is calls and
 // texts going nowhere.
 //
@@ -15,7 +15,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isTextFile, findOldPhone, NEW_E164, OLD_DISPLAY } from './phone.mjs';
+import { isTextFile, findOldPhone, NEW_E164 } from './phone.mjs';
 
 const ROOT = 'out';
 const LD_RE = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
@@ -84,7 +84,7 @@ for (const path of files) {
 if (!telephones) problems.push('no JSON-LD node carries a telephone property at all');
 
 if (problems.length) {
-  console.error(`assert-phone: the retired number ${OLD_DISPLAY} is still in the output:`);
+  console.error('assert-phone: a retired phone number is still in the output:');
   for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }

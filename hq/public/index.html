@@ -754,7 +754,7 @@ function windowMsg(b,kind,t){
   const day=new Date(t).toLocaleDateString('en-US',{weekday:'long'});
   const verb=kind==='Pick-up'?'pick up':'drop off';
   return "Hi "+first+", it's Ray with Ray's Rentals. We'll be there between "+windowLabel(t)+
-    " on "+day+" to "+verb+" your rental. Reply here if that doesn't work. - (469) 571-8720";
+    " on "+day+" to "+verb+" your rental. Reply here if that doesn't work. - (469) 654-4110";
 }
 /* apostrophes are legal unencoded but some SMS handlers mangle them, so encode too */
 function windowSmsHref(b,kind,t){
@@ -1298,7 +1298,7 @@ function viewLeads(){
 /* ---- subs (subcontractors) ---- */
 const SUB_AREAS=['Dallas','Fort Worth','Arlington','Plano','Garland','Irving','Mesquite','Grand Prairie','Cedar Hill','DeSoto','Duncanville','Waxahachie','Red Oak'];
 const SUB_GEAR=['Tables','Chairs','Tents/Canopies','Linens','Coolers','Speakers/AV','Inflatables','Staging/Dance floor','Restrooms','Generators'];
-const JOB_MSG_TEMPLATE="Job available: [date] in [city]. Need [items]. Can you cover it? - Ray, Ray's Rentals (469) 571-8720";
+const JOB_MSG_TEMPLATE="Job available: [date] in [city]. Need [items]. Can you cover it? - Ray, Ray's Rentals (469) 654-4110";
 let subSearch='', subAreaFilter='', subGearFilter='', subShowInactive=false;
 let composerOpen=false, jobMsg=JOB_MSG_TEMPLATE, subsPasteText='', pendingRestore=null;
 
