@@ -1,0 +1,11 @@
+{
+  "effectiveDate": "2026-10-26",
+  "updatedLabel": "October 2026",
+  "rates": {"tables": 9, "chairs": 2.5, "coolers": 18, "speakers": 40},
+  "packages": {
+    "party60": {"name": "Party for 60", "price": 200, "tables": 10, "chairs": 60, "coolers": 0, "speakers": 0},
+    "cookout60": {"name": "Cookout for 60", "price": 225, "tables": 10, "chairs": 60, "coolers": 2, "speakers": 0},
+    "wholeparty": {"name": "The Whole Party", "price": 250, "tables": 10, "chairs": 60, "coolers": 2, "speakers": 1}
+  },
+  "freeCoolerMinimum": 100
+}
