@@ -19,6 +19,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 
+const pricing = JSON.parse(readFileSync('pricing.json', 'utf8'));
 const PAGE = 'out/inventory/index.html';
 const LD_RE = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
 const LIST_NAME = "Ray's Rentals Inventory";
@@ -30,13 +31,13 @@ const SELF = 'https://raysrental.com/inventory/';
 // Keyed by the name the archive ships. `name` is the visible page text; `url` is the
 // booking link for packages, which deep-link into the quote builder.
 const UPGRADES = {
-  'Folding Table (6 ft)': { name: '6 ft Folding Table', url: SELF, price: '8' },
-  'Folding Chair': { name: 'Folding Chair', url: SELF, price: '2' },
-  'Drink Cooler': { name: 'Cooler', url: SELF, price: '12' },
-  'JBL PartyBox 110 Speaker': { name: 'JBL PartyBox 110', url: SELF, price: '30' },
-  'Party for 60 Package': { name: 'Party for 60', url: 'https://raysrental.com/quote/?package=party60', price: '180' },
-  'Cookout for 60 Package': { name: 'Cookout for 60', url: 'https://raysrental.com/quote/?package=cookout60', price: '200' },
-  'The Whole Party Package': { name: 'The Whole Party', url: 'https://raysrental.com/quote/?package=wholeparty', price: '225' },
+  'Folding Table (6 ft)': { name: '6 ft Folding Table', url: SELF, price: String(pricing.rates.tables) },
+  'Folding Chair': { name: 'Folding Chair', url: SELF, price: String(pricing.rates.chairs) },
+  'Drink Cooler': { name: 'Cooler', url: SELF, price: String(pricing.rates.coolers) },
+  'JBL PartyBox 110 Speaker': { name: 'JBL PartyBox 110', url: SELF, price: String(pricing.rates.speakers) },
+  'Party for 60 Package': { name: 'Party for 60', url: 'https://raysrental.com/quote/?package=party60', price: String(pricing.packages.party60.price) },
+  'Cookout for 60 Package': { name: 'Cookout for 60', url: 'https://raysrental.com/quote/?package=cookout60', price: String(pricing.packages.cookout60.price) },
+  'The Whole Party Package': { name: 'The Whole Party', url: 'https://raysrental.com/quote/?package=wholeparty', price: String(pricing.packages.wholeparty.price) },
 };
 
 const fail = (msg) => {
@@ -57,6 +58,7 @@ try {
 if (!Array.isArray(doc['@graph'])) fail('existing JSON-LD has no @graph array');
 
 const added = JSON.parse(readFileSync('inventory-schema-nodes.json', 'utf8'));
+added.forEach(node => { if ('dateModified' in node) node.dateModified = pricing.effectiveDate; });
 const before = doc['@graph'].length;
 doc['@graph'] = [...added, ...doc['@graph']];
 
@@ -79,10 +81,13 @@ for (const entry of list.itemListElement) {
 
   const offer = product.offers;
   offer.url = upgrade.url;
+  offer.price = upgrade.price;
+  offer.priceCurrency = 'USD';
   offer.seller = { '@id': BUSINESS };
 
   const spec = offer.priceSpecification;
   if (spec?.['@type'] !== 'UnitPriceSpecification') fail(`${upgrade.name} has no UnitPriceSpecification`);
+  spec.price = upgrade.price;
   spec.unitCode = 'DAY';
   spec.referenceQuantity = { ...PER_DAY };
 }
@@ -96,7 +101,7 @@ if (graph.length !== before + added.length) fail('graph length changed unexpecte
 if (!graph.some((n) => n['@type'] === 'BreadcrumbList')) fail('existing BreadcrumbList went missing');
 
 const page = graph.find((n) => n['@type'] === 'CollectionPage');
-if (page?.dateModified !== '2026-08-10') fail('page-level dateModified is missing');
+if (page?.dateModified !== pricing.effectiveDate) fail('page-level dateModified is missing');
 
 const final = graph.filter((n) => n['@type'] === 'ItemList');
 if (final.length !== 1) fail(`@graph must hold exactly 1 ItemList, found ${final.length}`);
@@ -116,6 +121,7 @@ for (const entry of final[0].itemListElement) {
   if (offer.availability !== 'https://schema.org/InStock') fail(`${product.name} offer is not InStock`);
   if (offer.seller?.['@id'] !== BUSINESS) fail(`${product.name} offer does not reference the LocalBusiness node`);
   if (spec?.['@type'] !== 'UnitPriceSpecification') fail(`${product.name} lost its UnitPriceSpecification`);
+  if (offer.price !== want.price || offer.priceCurrency !== 'USD') fail(`${product.name} offer price disagrees with its price specification`);
   if (spec.price !== want.price || spec.priceCurrency !== 'USD') fail(`${product.name} is not ${want.price} USD`);
   if (spec.unitText !== 'per day') fail(`${product.name} lost its "per day" unitText`);
   if (spec.unitCode !== 'DAY') fail(`${product.name} is not priced per DAY`);

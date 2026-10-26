@@ -459,7 +459,8 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
 (function(){
   'use strict';
 
-  var RATES   = {tables:8, chairs:2, coolers:12, speakers:30};
+  var LEGACY_RATES = {tables:8, chairs:2, coolers:12, speakers:30};
+  var RATES   = {tables:9, chairs:2.5, coolers:18, speakers:40};
   var LABELS  = {tables:'6-ft Folding Table', chairs:'Folding Chair', coolers:'Drink Cooler', speakers:'JBL PartyBox 110 Speaker'};
   var ORDER   = ['tables','chairs','coolers','speakers'];
   var VERSION = 'RR-AGR-v1.0';
@@ -517,7 +518,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
 
     var f = decoded.split('|');
     if (f.length !== 15) return null;
-    if (f[0] !== '1') return null;
+    if (f[0] !== '1' && f[0] !== '2') return null;
     if (!f[1] || !f[2] || !f[3] || !f[5]) return null;
     if (!DT_RE.test(f[6]) || !DT_RE.test(f[7])) return null;
 
@@ -531,7 +532,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     if (delivery === null || discount === null) return null;
 
     return {
-      quote: f[1], name: f[2], phone: f[3], email: f[4], address: f[5],
+      pricingVersion: f[0], quote: f[1], name: f[2], phone: f[3], email: f[4], address: f[5],
       start: f[6], end: f[7], qty: q, delivery: delivery, discount: discount, notes: f[14]
     };
   }
@@ -550,14 +551,18 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
   }
 
   function price(quote){
-    var days = daysBetween(quote.start, quote.end);
+    // v2 is the single-event quote shown by /quote/. The delivery window is not
+    // a billable duration. Keep historical v1 links on their original calculation.
+    var current = quote.pricingVersion === '2';
+    var days = current ? 1 : daysBetween(quote.start, quote.end);
+    var rates = current ? RATES : LEGACY_RATES;
     var lines = [], subtotal = 0;
     ORDER.forEach(function(key){
       var qty = quote.qty[key];
       if (!qty) return;                       // qty 0 is omitted entirely
-      var amount = qty * RATES[key] * days;
+      var amount = qty * rates[key] * days;
       subtotal += amount;
-      lines.push({key:key, label:LABELS[key], qty:qty, rate:RATES[key], days:days, amount:amount});
+      lines.push({key:key, label:LABELS[key], qty:qty, rate:rates[key], days:days, amount:amount});
     });
     // Delivery quoted by location: there is no total to state yet, so none is produced. Null
     // rather than 0 so nothing downstream can format it as a figure the renter might owe.
@@ -566,7 +571,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
               total:null, deposit:null, balance:null};
     }
     var total   = subtotal + quote.delivery - quote.discount;
-    var deposit = Math.round(total * 0.25);
+    var deposit = current ? Math.round(total * 0.25 * 100) / 100 : Math.round(total * 0.25);
     return {days:days, lines:lines, subtotal:subtotal, deliveryUnknown:false,
             total:total, deposit:deposit, balance:total - deposit};
   }

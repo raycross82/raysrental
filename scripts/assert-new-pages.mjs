@@ -46,7 +46,7 @@
 //
 // /corporate-event-rentals/ is checked the same way and for one more thing. Its five
 // room-setup tables are hand-written and quote a corporate buyer a delivered price, so all
-// nineteen rows are recomputed from (tables x $8) + (chairs x $2) + $150 and compared, and
+// nineteen rows are recomputed from (tables x $9) + (chairs x $2.50) + $150 and compared, and
 // the per-layout table and chair counts are pinned to the figures the page was signed off
 // with -- a row whose arithmetic is internally consistent but whose table count drifted is
 // still a wrong quote. Separately, the page must not claim insurance: there is no
@@ -62,8 +62,8 @@ const ROOT = 'out';
 const LD_RE = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
 
 const TABLE_SEATS = 6;
-const TABLE_RATE = 8;
-const CHAIR_RATE = 2;
+const TABLE_RATE = 9;
+const CHAIR_RATE = 2.5;
 
 const problems = [];
 const fail = (msg) => problems.push(msg);
@@ -101,7 +101,7 @@ const decode = (s) => s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, e) => {
 });
 
 // --- shared head-tag checks -------------------------------------------------
-// `updated` marks the two pages that carry a visible "Updated August 2026" line under the
+// `updated` marks the two pages that carry a visible "Updated October 2026" line under the
 // H1. The corporate page is dated through schema instead, so it opts out rather than the
 // check being loosened for everyone.
 const PAGES = [
@@ -119,7 +119,7 @@ for (const { rel, url, updated } of PAGES) {
     if (!html.includes(`<meta ${attr}="${tag}"`)) fail(`${rel}: missing ${tag}`);
   }
   if (updated) {
-    if (!/<p class="rr-updated">Updated August 2026<\/p>/.test(html)) fail(`${rel}: no "Updated August 2026" line`);
+    if (!/<p class="rr-updated">Updated October 2026<\/p>/.test(html)) fail(`${rel}: no "Updated October 2026" line`);
     if (!/<h1>[\s\S]*?<\/h1>[\s\S]{0,200}?<p class="rr-updated">/.test(html)) fail(`${rel}: the updated line is not under the H1`);
   }
 
@@ -165,7 +165,7 @@ if (!calc.includes('Math.ceil(guests / TABLE_SEATS)')) {
   fail('seating-calculator: table count is not ceil(guests / TABLE_SEATS)');
 }
 
-const rows = [...calc.matchAll(/<tr><th scope="row">(\d+)<\/th><td>(\d+)<\/td><td>(\d+)<\/td><td>(\d+)<\/td><td class="rr-price">\$(\d+)<\/td><\/tr>/g)];
+const rows = [...calc.matchAll(/<tr><th scope="row">(\d+)<\/th><td>(\d+)<\/td><td>(\d+)<\/td><td>(\d+)<\/td><td class="rr-price">\$(\d+(?:\.\d{2})?)<\/td><\/tr>/g)];
 const EXPECTED_GUESTS = [20, 30, 40, 50, 60, 75, 100, 125, 150];
 if (rows.length !== EXPECTED_GUESTS.length) {
   fail(`seating-calculator: reference table has ${rows.length} rows, expected ${EXPECTED_GUESTS.length}`);
@@ -205,7 +205,7 @@ const quince = read('quinceanera-rentals/index.html');
 // to walk back. Each row is recomputed from the package base plus the extras it lists, and
 // the package prices themselves are checked against the live /inventory/ page so a price
 // change in a re-uploaded archive cannot leave this table quoting last season's numbers.
-const BASE = { 'Party for 60': 180, 'The Whole Party': 225 };
+const BASE = { 'Party for 60': 200, 'The Whole Party': 250 };
 const PACKAGE_TABLES = 10;
 const PACKAGE_CHAIRS = 60;
 
@@ -218,7 +218,7 @@ for (const [name, price] of Object.entries(BASE)) {
 }
 
 const plans = [...quince.matchAll(
-  /<tr><th scope="row">(\d+)[^<]*<\/th><td>([^<]+?) &mdash; \$(\d+)<\/td><td>([^<]*)<\/td><td>(\d+) \/ (\d+)<\/td><td class="rr-price">\$(\d+)<\/td><\/tr>/g,
+  /<tr><th scope="row">(\d+)[^<]*<\/th><td>([^<]+?) &mdash; \$(\d+)<\/td><td>([^<]*)<\/td><td>(\d+) \/ (\d+)<\/td><td class="rr-price">\$(\d+(?:\.\d{2})?)<\/td><\/tr>/g,
 )];
 if (plans.length !== 6) fail(`quinceanera-rentals: package table has ${plans.length} rows, expected 6`);
 
@@ -280,7 +280,7 @@ const SETUPS = [
 ];
 
 const corp = read('corporate-event-rentals/index.html');
-const ROW_RE = /<tr><th scope="row">(\d+)<\/th><td>(\d+)<\/td><td>(\d+)<\/td><td class="rr-price">\$([\d,]+)<\/td><\/tr>/g;
+const ROW_RE = /<tr><th scope="row">(\d+)<\/th><td>(\d+)<\/td><td>(\d+)<\/td><td class="rr-price">\$([\d,.]+)<\/td><\/tr>/g;
 
 let checkedRows = 0;
 for (const { id, unit, rows: want } of SETUPS) {
@@ -315,7 +315,7 @@ for (const { id, unit, rows: want } of SETUPS) {
 
     const wantTotal = tables * TABLE_RATE + chairs * CHAIR_RATE + DELIVERY;
     // Compared as the rendered string so "$1350" fails as loudly as a wrong sum would.
-    const wantText = `$${wantTotal.toLocaleString('en-US')}`;
+    const wantText = `$${wantTotal.toLocaleString('en-US', {minimumFractionDigits: Number.isInteger(wantTotal) ? 0 : 2, maximumFractionDigits: 2})}`;
     if (`$${row[4]}` !== wantText) fail(`${where} totals $${row[4]}, expected ${wantText}`);
   });
 }
@@ -324,8 +324,8 @@ if (checkedRows !== 19) fail(`corporate-event-rentals: recomputed ${checkedRows}
 // The per-day rates and the delivery floor are quoted in prose too, and prose that disagrees
 // with the tables sends a buyer to the phone with the wrong number in their head.
 for (const phrase of [
-  '6-ft folding tables $8 per day, folding chairs $2 per day, delivery and setup from $150',
-  'Every total is tables at $8 per day, plus chairs at $2 per day, plus $150 delivery and setup.',
+  '6-ft folding tables $9 per day, folding chairs $2.50 per day, delivery and setup from $150',
+  'Every total is tables at $9 per day, plus chairs at $2.50 per day, plus $150 delivery and setup.',
 ]) {
   if (!corp.includes(phrase)) fail(`corporate-event-rentals: missing the rate line "${phrase}"`);
 }
@@ -551,7 +551,7 @@ if (agreement) {
 // The three packages, built by the page's own encoder and priced by the page's own pricing
 // function, for a one-day rental with free pickup. The expected totals are the prices the
 // packages were signed off with, and they are checked against the /quote/ cards as well.
-const PACKAGE_TOTALS = { 'Party for 60': 180, 'Cookout for 60': 200, 'The Whole Party': 225 };
+const PACKAGE_TOTALS = { 'Party for 60': 200, 'Cookout for 60': 225, 'The Whole Party': 250 };
 const ONE_DAY = {
   name: 'Maria Gonzalez', phone: '214-555-0142', email: '', address: '1801 N Lamar St', city: 'Dallas TX',
   date: '2026-09-19', dropoffTiming: 'Morning of the event', pickupTiming: 'Same night after the event',
@@ -588,7 +588,7 @@ if (handoff && agreement) {
     if (stacked.qty.tables !== 12 || stacked.qty.chairs !== 70 || stacked.qty.coolers !== 1) {
       fail('quote handoff: cart quantities do not stack on top of the package');
     }
-    if (stacked.discount !== PACKAGE_TOTALS['Party for 60'] && stacked.discount !== 20) {
+    if (stacked.discount !== 40) {
       fail(`quote handoff: stacking cart items changed the package discount to ${stacked.discount}`);
     }
   }
@@ -716,6 +716,40 @@ for (const clause of [
 ]) {
   if (!decode(agreementPage).includes(clause)) fail(`${AGREEMENT_PAGE}: the agreement no longer says "${clause}"`);
 }
+
+// Current quotes must agree with the quoted one-day price for every offered
+// pickup/drop-off window. Legacy v1 vectors above deliberately retain old rates.
+let currentChecks = 0;
+if (handoff && agreement) {
+  const dropoffs = ['Evening before the event', 'Morning of the event', 'Afternoon of the event', 'Not sure yet - Ray will confirm'];
+  const pickups = ['Morning after the event', 'Same night after the event', 'Next evening', 'Not sure yet - Ray will confirm'];
+  for (const [name, total] of Object.entries(PACKAGE_TOTALS)) {
+    for (const dropoffTiming of dropoffs) for (const pickupTiming of pickups) {
+      const parsed = agreement.parsePayload(handoff.build({...ONE_DAY, package:name, dropoffTiming, pickupTiming}));
+      const sums = parsed && agreement.price(parsed);
+      if (parsed?.pricingVersion !== '2' || sums?.total !== total || sums.days !== 1) fail(`current quote: ${name} changes price across delivery windows`);
+      if (sums?.deposit !== total * .25) fail(`current quote: ${name} deposit lost cents`);
+      currentChecks++;
+    }
+  }
+  const cases = [
+    [{package:'none', tables:'1', chairs:'1', coolers:'1', speakers:'1'}, 69.5],
+    [{package:'Cookout for 60', tables:'2', chairs:'3'}, 250.5],
+    [{package:'The Whole Party', tables:'2', chairs:'6', coolers:'1', speakers:'1'}, 341],
+  ];
+  for (const [items, total] of cases) {
+    const parsed = agreement.parsePayload(handoff.build({...ONE_DAY,...items}));
+    const sums = parsed && agreement.price(parsed);
+    if (sums?.total !== total) fail('current quote: mixed-item total disagrees');
+    const deposit = Math.round(total * 25) / 100;
+    if (sums?.deposit !== deposit || sums?.balance !== total - deposit) fail('current quote: deposit/balance rounding disagrees');
+    const pending = agreement.parsePayload(handoff.build({...ONE_DAY,...items,fulfillment:'Delivery & Setup'}));
+    const pendingSums = pending && agreement.price(pending);
+    if (!pendingSums?.deliveryUnknown || pendingSums.total !== null || pendingSums.subtotal - pending.discount !== total) fail('current quote: delivery estimate disagrees');
+    currentChecks++;
+  }
+}
+console.log(`current quote checks: ${currentChecks} package/timing/mixed-cart cases; historical v1 pricing retained`);
 
 if (problems.length) {
   console.error('assert-new-pages: the new pages are inconsistent with themselves:');

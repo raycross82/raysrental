@@ -13,7 +13,9 @@
       the behaviour this page has always had, rather than to an agreement that would render
       its "we couldn't open this quote" fallback.
 
-   The payload is the v1 pipe-separated format /agreement/ already decodes: 15 fields,
+   New quotes use v2 of the pipe-separated format: 15 fields, current rates, and one
+   quoted event day. Delivery/pickup windows do not add rental days. Existing v1 links
+   retain their original rates and duration calculation. Both versions use
    UTF-8, base64url, no padding. Only raw inputs travel -- quantities, delivery, discount --
    never a total; /agreement/ recomputes every figure from its own rates, so a hand-edited
    link cannot change what is owed.
@@ -32,12 +34,12 @@
   var ORDER = ['tables', 'chairs', 'coolers', 'speakers'];
 
   // Package -> the items it contains plus the discount that makes the package price come out
-  // right at the per-item rates /agreement/ prices with. Party for 60 is 10 x $8 + 60 x $2 =
-  // $200 less $20 = the $180 on the card. Cart quantities stack on top; the discount does not.
+  // right at the current per-item rates. These discounts are injected from pricing.json
+  // by the build. Cart quantities stack on top; the package discount does not.
   var PACKAGES = {
-    'Party for 60':    {tables: 10, chairs: 60, coolers: 0, speakers: 0, discount: 20},
-    'Cookout for 60':  {tables: 10, chairs: 60, coolers: 2, speakers: 0, discount: 24},
-    'The Whole Party': {tables: 10, chairs: 60, coolers: 2, speakers: 1, discount: 29}
+    'Party for 60':    {tables: 10, chairs: 60, coolers: 0, speakers: 0, discount: 40},
+    'Cookout for 60':  {tables: 10, chairs: 60, coolers: 2, speakers: 0, discount: 51},
+    'The Whole Party': {tables: 10, chairs: 60, coolers: 2, speakers: 1, discount: 66}
   };
 
   // Timing select -> a day offset from the event date and a wall-clock time. "Not sure yet"
@@ -149,7 +151,7 @@
     if (!place) place = delivery === 0 ? "Pickup at Ray's Rentals lot, DFW" : 'Address to be confirmed with Ray';
 
     return encode([
-      '1',
+      '2',
       quoteNumber(now),
       name,
       phone,
