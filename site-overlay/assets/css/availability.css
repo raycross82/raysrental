@@ -1,0 +1,31 @@
+.rr-availability{padding:52px 0 64px}
+.rr-availability-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:52px;align-items:start}
+.rr-availability-intro{padding-top:22px}
+.rr-availability-intro h1{margin-bottom:20px;font-size:clamp(2rem,4vw,3.25rem)}
+.rr-availability-intro p{margin-bottom:20px}
+.rr-availability-benefits{list-style:none;margin:24px 0}
+.rr-availability-benefits li{margin:10px 0;padding-left:24px;position:relative}
+.rr-availability-benefits li:before{content:'✓';position:absolute;left:0;color:var(--blue);font-weight:800}
+.rr-availability-offer{background:var(--beige);border-left:4px solid var(--gold);padding:14px 18px;border-radius:0 8px 8px 0;font-weight:800}
+.rr-availability-contact{font-size:.95rem}
+.rr-availability-card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:14px;padding:30px;box-shadow:var(--shadow);min-width:0}
+.rr-availability-card h2{font-family:var(--sans);font-size:1.55rem;margin-bottom:8px}
+.rr-form-note{font-size:.87rem;color:var(--ink-soft);line-height:1.55;margin:10px 0 18px}
+.rr-availability-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:22px 0}
+.rr-availability-fields>div{min-width:0}
+.rr-availability-fields label{display:block;font-size:.88rem;font-weight:800;margin:0 0 6px}
+.rr-availability-fields input,.rr-availability-fields textarea{display:block;width:100%;min-width:0;min-height:46px;border:1px solid #a9b2bf;border-radius:7px;padding:10px 11px;font:inherit;font-size:16px;background:#fff;color:var(--ink)}
+.rr-availability-fields input:focus-visible,.rr-availability-fields textarea:focus-visible{outline:3px solid #a7c7ed;outline-offset:2px;border-color:var(--blue)}
+.rr-availability-fields small{display:block;font-size:.76rem;color:var(--ink-soft);margin-top:5px}
+.rr-availability-fields .rr-wide{grid-column:1/-1}
+.rr-availability-card button{font-family:inherit}
+.rr-availability-card button:disabled{cursor:wait;opacity:.7}
+#availability-status{color:#8d281c;font-weight:700;margin-top:12px}
+#availability-fallback{margin-top:12px}
+#availability-success p{margin:18px 0}
+.rr-quick-link{font-size:.95rem;margin:18px 0 0}
+.hero .rr-quick-link,.page-hero .rr-quick-link{font-size:1rem;margin:18px auto 0}
+.hero .rr-quick-link a,.page-hero .rr-quick-link a{color:#fff;text-decoration:underline;text-underline-offset:4px;font-weight:800}
+@media(max-width:760px){.rr-availability{padding:24px 0 44px}.rr-availability-grid{grid-template-columns:1fr;gap:20px}.rr-availability-intro{padding-top:0}.rr-availability-intro h1{font-size:2rem;margin-bottom:12px}.rr-availability-benefits,.rr-availability-contact,.rr-availability-intro .kicker,.rr-availability-intro p:not(.lead){display:none}.rr-availability-intro p{margin-bottom:0}.rr-availability-card{padding:22px}.rr-availability-fields{gap:14px}.rr-availability-card h2{font-size:1.35rem}}
+@media(max-width:420px){.rr-availability-fields{grid-template-columns:1fr}.rr-availability-card{padding:20px}.rr-availability .container{padding-left:16px;padding-right:16px}}
+@media(max-width:400px){.rr-availability-page .nav-wrap{gap:8px}.rr-availability-page .brand{min-width:0;gap:7px}.rr-availability-page .brand img:last-child{max-width:calc(100vw - 140px);height:auto!important;max-height:26px}.rr-availability-page .nav-toggle{flex:none;padding:4px 6px}}

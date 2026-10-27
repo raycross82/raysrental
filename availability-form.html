@@ -1,0 +1,51 @@
+<section class="rr-availability" aria-labelledby="availability-title">
+  <div class="container rr-availability-grid">
+    <div class="rr-availability-intro">
+      <p class="kicker">Let's plan your event</p>
+      <h1 id="availability-title">Got a date in mind?</h1>
+      <p class="lead">Send us a few details. We'll text you about availability and help you figure out what you need.</p>
+      <ul class="rr-availability-benefits">
+        <li>No payment or commitment to ask</li>
+        <li>Free pickup or delivery priced by location</li>
+        <li>Tables, chairs, coolers &amp; a JBL speaker</li>
+      </ul>
+      <p class="rr-availability-offer">Free cooler with orders of ${{freeCoolerMinimum}} or more.</p>
+      <p>Already know what you need?<br><a href="/quote/">Build your quote and see rental pricing &rarr;</a></p>
+      <p class="rr-availability-contact">Need an answer sooner? <a href="sms:+14696544110">Text Ray</a> or <a href="tel:+14696544110">call (469) 654-4110</a>.</p>
+    </div>
+    <div class="rr-availability-card">
+      <h2>Check my date</h2>
+      <p class="rr-form-note">Four quick details. Guest count and rental items can come later.</p>
+      <!-- Uses the existing quote form's registered fields and notification routing.
+           Only /quote/ registers that form with Netlify; this is another entry point. -->
+      <form id="availabilityForm" name="availability-request" method="POST" action="/availability-requested/">
+        <input type="hidden" name="form-name" value="quote">
+        <p hidden><label>Leave this empty <input name="bot-field" tabindex="-1" autocomplete="off"></label></p>
+        <input type="hidden" name="package" value="Availability inquiry — not a reservation">
+        <input type="hidden" name="total" value="Not quoted">
+        <input type="hidden" name="deposit" value="Not due">
+        <input type="hidden" name="fulfillment" value="To be confirmed">
+        <input type="hidden" name="email" value="">
+        <input type="hidden" name="address" value="">
+        <input type="hidden" name="dropoffTiming" value="To be confirmed">
+        <input type="hidden" name="pickupTiming" value="To be confirmed">
+        <div class="rr-availability-fields">
+          <div><label for="a-name">Your name *</label><input id="a-name" name="name" autocomplete="name" maxlength="100" required></div>
+          <div><label for="a-phone">Mobile number *</label><input id="a-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" required aria-describedby="a-phone-help"><small id="a-phone-help">We'll text you about this request.</small></div>
+          <div><label for="a-date">Event date *</label><input id="a-date" name="date" type="date" required></div>
+          <div><label for="a-city">Event city *</label><input id="a-city" name="city" autocomplete="address-level2" maxlength="100" required placeholder="e.g. Mesquite"></div>
+          <div class="rr-wide"><label for="a-items">Guest count or rentals (optional)</label><textarea id="a-items" name="items" rows="2" maxlength="1000" placeholder="e.g. 30 guests, or 5 tables and 30 chairs"></textarea></div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Send my availability request</button>
+        <p class="rr-form-note">No payment now. Your date is reserved only after we confirm availability and receive your deposit.</p>
+        <p id="availability-status" role="status" aria-live="polite"></p>
+        <p id="availability-fallback" hidden><a id="availability-text" href="sms:+14696544110">Text these details to Ray instead</a>, or call <a href="tel:+14696544110">(469) 654-4110</a>.</p>
+      </form>
+      <div id="availability-success" hidden tabindex="-1">
+        <h2>Thanks — we got your request.</h2>
+        <p>We'll text you about availability and pricing during business hours. Your date isn't reserved yet, and no payment is due now.</p>
+        <p><a class="btn btn-outline" href="/inventory/">Browse rentals &amp; pricing</a></p>
+      </div>
+    </div>
+  </div>
+</section>
