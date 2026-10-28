@@ -33,6 +33,13 @@ for (const p of pages) {
           faqs++;
         }
       }
+      // A Product nested under Offer.itemOffered still needs its own rich-result
+      // properties. City landing pages describe rental services, not product
+      // detail pages; bare Product nodes caused Search Console critical errors.
+      if ([node['@type']].flat().includes('Product')) {
+        assert.ok(node.offers || node.review || node.aggregateRating,
+          p + ': Product missing offers, review or aggregateRating: ' + node.name);
+      }
       if (node['@type'] === 'Product' && node.offers) {
         offers++;
         const expected = {
@@ -48,6 +55,10 @@ for (const p of pages) {
       }
       if (node['@type'] === 'Offer' && node.itemOffered) {
         offers++;
+        assert.equal(node.itemOffered['@type'], 'Service', p + ': city offer must describe a rental service');
+        assert.equal(node.itemOffered.serviceType, node.name, p + ': rental service type');
+        assert.equal(node.itemOffered.provider?.['@id'], 'https://raysrental.com/#business', p + ': rental provider');
+        assert.equal(node.itemOffered.areaServed?.['@id'], node.areaServed?.['@id'], p + ': rental service area');
         const rate = {'6 ft Folding Table':9, 'White Resin Folding Chair':2.5, 'Drink Cooler':18, 'JBL PartyBox 110 Speaker':40}[node.itemOffered.name];
         assert.equal(Number(node.price), rate, p + ': city offer price');
         assert.equal(Number(node.priceSpecification.price), rate, p + ': city unit price');
