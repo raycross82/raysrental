@@ -57,7 +57,7 @@ if (bars !== 1) fail(`${PAGE}: expected 1 quote bar, found ${bars}`);
 // Pieces of the bar whose absence would silently change behaviour rather than break it.
 const PARTS = [
   ['href="sms:+14696544110"', 'the text-quote link lost the phone number'],
-  ["'?&body='", 'the text-quote link no longer prefills the message'],
+  ["'body='", 'the text-quote link no longer prefills the message'],
   ['id="rrQbAmount"', 'the live total has no target element'],
   ['id="rrQbReserve"', 'the Reserve button is missing'],
   ['>Your quote<', 'the "Your quote" label is missing'],
@@ -103,7 +103,7 @@ const calls = cart.split(HOOK).length - 1;
 
 if (calls !== 1) {
   fail(`${CART}: expected 1 window.rrQuoteBar() call, found ${calls} -- the bar would render but never update`);
-} else if (!cart.includes(`.value=fmt(s.deposit);${HOOK}`)) {
+} else if (!cart.includes(`.value=s.delivery?'To be confirmed':fmt(s.deposit);${HOOK}`)) {
   fail(`${CART}: the window.rrQuoteBar() call is not at the end of renderSummary, so the bar can update from stale numbers`);
 }
 

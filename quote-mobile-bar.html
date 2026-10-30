@@ -124,7 +124,7 @@
     var amount=el('rrQbAmount'),per=el('rrQbPer'),link=el('rrQbText');
     if(amount)amount.textContent=total.text;
     if(per)per.textContent=total.delivery?'/ day + delivery':'/ day';
-    if(link)link.setAttribute('href',items?SMS+'?&body='+encodeURIComponent(message(total,items)):SMS);
+    if(link)link.setAttribute('href',items?SMS+(/iPad|iPhone|iPod/.test(navigator.userAgent)?'&':'?')+'body='+encodeURIComponent(message(total,items)):SMS);
     if(total.num>0){document.body.classList.add('rr-qbar-on');measure()}
     else document.body.classList.remove('rr-qbar-on');
   }

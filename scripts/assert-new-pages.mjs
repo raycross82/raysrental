@@ -454,7 +454,7 @@ const runPageScript = (src, where) => {
     navigator: { userAgent: 'assert-new-pages' },
     location: win.location,
     document: {
-      getElementById: () => node(),
+      getElementById: id => where === QUOTE_PAGE && id === 'quoteForm' ? null : node(),
       querySelector: () => node(),
       querySelectorAll: () => [],
       createElement: () => node(),
@@ -588,8 +588,8 @@ if (handoff && agreement) {
     if (stacked.qty.tables !== 12 || stacked.qty.chairs !== 70 || stacked.qty.coolers !== 1) {
       fail('quote handoff: cart quantities do not stack on top of the package');
     }
-    if (stacked.discount !== 40) {
-      fail(`quote handoff: stacking cart items changed the package discount to ${stacked.discount}`);
+    if (stacked.discount !== 58) {
+      fail(`quote handoff: package and complimentary cooler savings should total $58, got ${stacked.discount}`);
     }
   }
 
@@ -687,7 +687,7 @@ for (const needle of [
   '<form name="quote" method="POST" action="/thank-you/"',
   '<input type="hidden" name="form-name" value="quote">',
   "window.location.href = hash ? '/agreement/#q=' + hash : '/thank-you/';",
-  'form.submit();',
+  "showError(\"We couldn't confirm your request was received.",
 ]) {
   if (!quotePage.includes(needle)) fail(`${QUOTE_PAGE}: the handoff no longer posts as before (missing "${needle}")`);
 }

@@ -1,17 +1,9 @@
 <!-- /quote/ -> /agreement/ handoff. Injected into the archive-owned /quote/ page by netlify.toml. -->
 <script>
 /* Hands a submitted quote to /agreement/ as a signable, pre-filled rental agreement.
-   Two rules drive everything below:
-
-   1. The lead is recorded first, always. Ray's business runs on the Netlify Forms
-      submission, so the form is POSTed and awaited before anything navigates. If that POST
-      fails for any reason the browser is allowed to submit the form the old way, which
-      posts it again and lands on /thank-you/ -- a duplicated lead is recoverable, a lost
-      one is not.
-   2. A half-built link is worse than no link. If the payload cannot be built (no readable
-      event date, no name or phone, nothing in the cart) the customer goes to /thank-you/,
-      the behaviour this page has always had, rather than to an agreement that would render
-      its "we couldn't open this quote" fallback.
+   Validate the request before sending. Record the lead before navigating to its
+   agreement. If the connection fails or times out, keep the customer's details
+   and offer an explicit retry; never silently post a second copy.
 
    New quotes use v2 of the pipe-separated format: 15 fields, current rates, and one
    quoted event day. Delivery/pickup windows do not add rental days. Existing v1 links
@@ -41,6 +33,26 @@
     'Cookout for 60':  {tables: 10, chairs: 60, coolers: 2, speakers: 0, discount: 51},
     'The Whole Party': {tables: 10, chairs: 60, coolers: 2, speakers: 1, discount: 66}
   };
+
+  var PROMO_RATES = {tables:9, chairs:2.5, coolers:18, speakers:40};
+  var PROMO_MINIMUM = 100;
+  // One complimentary cooler on qualifying non-cooler rentals. Packages already
+  // containing coolers include the offer; they do not receive a third cooler.
+  function promotion(values) {
+    var pkg = PACKAGES[clean(values['package'])] || null;
+    var qty = {}, gross = 0;
+    ORDER.forEach(function(key) {
+      qty[key] = (pkg ? pkg[key] : 0) + count(values[key]);
+      gross += qty[key] * PROMO_RATES[key];
+    });
+    var discount = pkg ? pkg.discount : 0;
+    var eligible = !(pkg && pkg.coolers) && gross - discount - qty.coolers * PROMO_RATES.coolers >= PROMO_MINIMUM;
+    if (eligible) {
+      if (!qty.coolers) { qty.coolers = 1; gross += PROMO_RATES.coolers; }
+      discount += PROMO_RATES.coolers;
+    }
+    return {qty:qty, discount:discount, freeCooler:eligible, included:!!(pkg && pkg.coolers), total:gross-discount};
+  }
 
   // Timing select -> a day offset from the event date and a wall-clock time. "Not sure yet"
   // takes the most popular answer so the agreement still shows a concrete window; the notes
@@ -144,6 +156,8 @@
     }
     if (!items) return null;                       // an agreement for nothing is not signable
 
+    var offer = promotion(values);
+    qty = offer.qty;
     var delivery = clean(values.fulfillment) === 'Free Pickup' ? 0 : -1;
     var place = [clean(values.address), clean(values.city)].filter(Boolean).join(', ');
     // Address is optional on this form and /agreement/ needs the field, so say plainly where
@@ -164,13 +178,13 @@
       String(qty.coolers),
       String(qty.speakers),
       String(delivery),
-      String(pkg ? pkg.discount : 0),
-      notes(values.dropoffTiming, values.pickupTiming, values.fulfillment)
+      String(offer.discount),
+      notes(values.dropoffTiming, values.pickupTiming, values.fulfillment) + (offer.freeCooler ? ' Includes one complimentary cooler.' : '')
     ]);
   }
 
   window.rrQuoteHandoff = {
-    packages: PACKAGES, dropoff: DROPOFF, pickup: PICKUP, order: ORDER,
+    promotion: promotion, packages: PACKAGES, dropoff: DROPOFF, pickup: PICKUP, order: ORDER,
     encode: encode, dates: dates, notes: notes, build: build, quoteNumber: quoteNumber
   };
 
@@ -202,32 +216,52 @@
   var submit = form.querySelector('button[type=submit]');
   var label  = submit ? submit.textContent : '';
   var sending = false;
+  var errorBox = document.createElement('p');
+  errorBox.id = 'quote-status'; errorBox.setAttribute('role', 'alert');
+  errorBox.setAttribute('tabindex', '-1'); errorBox.hidden = true;
+  submit.parentNode.insertBefore(errorBox, submit);
+  var phoneInput = form.elements.phone;
+  phoneInput.addEventListener('input', function(){ phoneInput.setCustomValidity(''); });
+  var dateInput = form.elements.date, today = new Date();
+  dateInput.min = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+  function showError(message) { errorBox.textContent = message; errorBox.hidden = false; errorBox.focus(); }
+
 
   form.addEventListener('submit', function(ev){
     if (sending) { ev.preventDefault(); return; }
 
+    ev.preventDefault();
+    form.elements.name.value = form.elements.name.value.trim();
+    var digits = phoneInput.value.replace(/\D/g,'');
+    phoneInput.setCustomValidity(digits.length === 10 || (digits.length === 11 && digits[0] === '1') ? '' : 'Please enter a 10-digit phone number, with area code.');
+    if (!form.reportValidity()) return;
+    if (value('fulfillment') !== 'Free Pickup' && !value('city').trim()) {
+      showError('Please add your event city so we can quote delivery.'); form.elements.city.focus(); return;
+    }
     var hash = null;
     try { hash = build(readForm()); } catch (err) { hash = null; }
+    if (!hash) { showError('Please choose a package or add at least one rental item.'); return; }
+    errorBox.hidden = true;
 
-    ev.preventDefault();
     sending = true;
     if (submit) { submit.disabled = true; submit.textContent = 'Sending…'; }
 
+    var controller = new AbortController();
+    var timeout = setTimeout(function(){ controller.abort(); }, 15000);
     fetch('/', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: new URLSearchParams(new FormData(form)).toString()
+      body: new URLSearchParams(new FormData(form)).toString(),
+      signal: controller.signal
     }).then(function(res){
       if (!res.ok) throw new Error('HTTP ' + res.status);
       if (typeof gtag === 'function') gtag('event', 'generate_lead', {method: 'quote_form'});
       window.location.href = hash ? '/agreement/#q=' + hash : '/thank-you/';
     })['catch'](function(){
-      // Hand it back to the browser: a native submit posts to Netlify and lands on
-      // /thank-you/ exactly as it did before this file existed, and does not fire this
-      // handler again. Nothing is swallowed on the way.
+      sending = false;
       if (submit) { submit.disabled = false; submit.textContent = label; }
-      form.submit();
-    });
+      showError("We couldn't confirm your request was received. Your details are still here. Try again, or text Ray at (469) 654-4110.");
+    }).finally(function(){ clearTimeout(timeout); });
   });
 })();
 /* rr-agreement-handoff:end */
