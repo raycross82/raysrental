@@ -347,7 +347,7 @@ gtag('config', 'G-Z6VJLTSTYQ', {page_location: 'https://raysrental.com/agreement
             <button type="button" class="ag-btn ag-btn-outline ag-print">Save / Print a copy</button>
           </div>
           <p class="ag-hint" id="ag-hint" role="status" aria-live="polite"></p>
-          <p class="ag-err" id="ag-error" hidden></p>
+          <p class="ag-err" id="ag-error" tabindex="-1" hidden></p>
         </form>
 
         <div class="ag-done" id="ag-done" hidden>
@@ -688,12 +688,12 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     if (sums.deliveryUnknown) {
       foot.appendChild(footRow('ag-sub', 'Equipment subtotal', fmt(sums.subtotal)));
       foot.appendChild(footRow('', 'Delivery & setup', '— quoted by location, Ray will confirm', 'ag-quoted'));
-      if (q.discount > 0) foot.appendChild(footRow('', 'Discount', '-' + fmt(q.discount)));
+      if (q.discount > 0) foot.appendChild(footRow('', 'Package / promotion savings', '-' + fmt(q.discount)));
       text('ag-depnote', 'Your final total and 25% deposit will be confirmed by Ray before anything is due.');
     } else {
       foot.appendChild(footRow('ag-sub', 'Subtotal', fmt(sums.subtotal)));
       foot.appendChild(footRow('', 'Delivery & setup', fmt(q.delivery)));
-      if (q.discount > 0) foot.appendChild(footRow('', 'Discount', '-' + fmt(q.discount)));
+      if (q.discount > 0) foot.appendChild(footRow('', 'Package / promotion savings', '-' + fmt(q.discount)));
       foot.appendChild(footRow('ag-total', 'Total', fmt(sums.total)));
       foot.appendChild(footRow('ag-dep', 'Deposit due (25%)', fmt(sums.deposit)));
       foot.appendChild(footRow('ag-bal', 'Balance on delivery', fmt(sums.balance)));
@@ -866,10 +866,13 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     $('f-signature_png').value = png;
     $('f-user_agent').value = navigator.userAgent;
 
+    var controller = new AbortController();
+    var timeout = setTimeout(function(){ controller.abort(); }, 15000);
     fetch('/', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: new URLSearchParams(new FormData(form)).toString()
+      body: new URLSearchParams(new FormData(form)).toString(),
+      signal: controller.signal
     }).then(function(res){
       if (!res.ok) throw new Error('HTTP ' + res.status);
       done(signer.value.trim(), signedAt, png);
@@ -878,8 +881,9 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
       submit.textContent = 'Sign & Send to Ray';
       errorBox.hidden = false;
       errorBox.textContent = "Couldn't send that. Check your signal and try again, or text Ray at (469) 654-4110.";
+      errorBox.focus();
       gate();
-    });
+    }).finally(function(){ clearTimeout(timeout); });
   });
 
   function done(name, signedAt, png){

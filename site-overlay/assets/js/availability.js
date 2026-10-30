@@ -29,6 +29,8 @@
   form.addEventListener('submit', function (event) {
     event.preventDefault();
     if (sending || sent) return;
+    form.elements.name.value = form.elements.name.value.trim();
+    form.elements.city.value = form.elements.city.value.trim();
     validPhone();
     if (!form.reportValidity()) return;
     var data = new FormData(form);

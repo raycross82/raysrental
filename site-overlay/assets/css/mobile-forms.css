@@ -1,0 +1,32 @@
+/* Mobile form improvements, scoped to preserve the site's established layout. */
+[hidden]{display:none!important}
+#quote-status,#ag-error{color:#8d281c;background:#fff4ee;border:1px solid #e7b6a4;border-radius:8px;padding:14px;margin:12px 0;scroll-margin-top:88px}
+.rr-offer{font-size:.9rem;line-height:1.55;background:var(--blue-tint);border-left:3px solid var(--gold);padding:12px;margin:14px 0}
+input,select,textarea{min-width:0;font-size:16px}
+input[type=radio],input[type=checkbox]{flex-shrink:0}
+input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,button:focus-visible{outline:3px solid #75a3da;outline-offset:3px}
+@media(max-width:760px){
+ .rr-contact-page .grid,.rr-contact-page .stats{grid-template-columns:minmax(0,1fr)!important}.rr-contact-page .card{min-width:0}.rr-contact-page a[href^="mailto:"]{overflow-wrap:anywhere;white-space:normal}
+ .nav-wrap{gap:10px}.brand{flex:1;min-width:0;gap:8px}.brand img:first-child{flex:0 0 32px;width:32px;height:32px}.brand img:last-child{width:calc(100% - 40px)!important;max-width:260px;height:auto!important;max-height:27px;object-fit:contain}.nav-toggle{flex:none;width:44px;min-height:44px;padding:4px 8px}
+ .main-nav{max-height:calc(100dvh - 72px);overflow-y:auto}
+ #quoteForm .pick-card{padding:14px;letter-spacing:normal;text-transform:none}
+ #quoteForm .pick-card.has-thumb{gap:10px}
+ #quoteForm .pick-card .thumb{width:48px;height:48px}
+ #quoteForm .pc-body,#quoteForm .pc-head>span:first-child{min-width:0}
+ #quoteForm .pc-head{align-items:start;flex-wrap:wrap;gap:6px;font-size:1rem}
+ #quoteForm .pc-sub{margin:6px 0 0;font-size:.85rem;line-height:1.4}
+ #quoteForm .qty-row{padding:14px;gap:10px}
+ #quoteForm .qty-ctl{width:100%;justify-content:flex-end}
+ #quoteForm .qty-ctl button,#quoteForm .qty-ctl input{min-height:44px}
+ #quoteForm .sline{gap:14px;align-items:start}
+ #quoteForm .sline>span:last-child{text-align:right;flex-shrink:0;max-width:52%}
+ #quoteForm .summary-card{padding:20px;min-width:0}
+ #quoteForm input,#quoteForm select,#availabilityForm input{scroll-margin-top:90px}
+ #rr-qbar .btn{min-height:44px}
+ .rr-availability-contact{display:block!important;margin-top:12px!important}
+ .rr-availability-contact a{display:inline-flex;align-items:center;min-height:44px}
+ .rr-availability-card{overflow-wrap:anywhere}
+ .ag-canvas-wrap{min-height:130px}
+ #ag-canvas{height:150px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{transition:none!important}}

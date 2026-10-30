@@ -86,7 +86,7 @@ for (const p of ['index.html', 'inventory/index.html']) {
 }
 const quote = read('quote/index.html');
 for (const [key, rate] of Object.entries(rates)) {
-  assert.ok(quote.includes(`id="q-${key}" data-price="${rate}"`), key + ': quote calculation input');
+  assert.ok(new RegExp(`id="q-${key}"[^>]*data-price="${rate}"`).test(quote), key + ': quote calculation input');
 }
 for (const p of Object.values(packages)) {
   assert.ok(quote.includes(`value="${p.name}" data-price="${p.price}"`), p.name + ': quote card');
@@ -98,9 +98,14 @@ for (const p of Object.values(packages)) {
 assert.ok(read('faq/index.html').includes('$225 Cookout for 60 package needs a $56.25 deposit'));
 assert.ok(read('blog/graduation-party-rentals-dfw/index.html').includes("for a $200 package that's $50"));
 assert.ok(read('seating-calculator/index.html').includes('six spare chairs on a 60-guest party costs $15'));
+const handoffWindow = {};
+runInNewContext(quote.split('/* rr-agreement-handoff:start */')[1].split('/* rr-agreement-handoff:end */')[0], {
+  window:handoffWindow, document:{getElementById:()=>null}, TextEncoder,TextDecoder,btoa,atob
+});
 // Execute the shipped cart script against its rendered input prices. This catches
 // rounding differences between the visible/hidden quote values and the agreement.
-for (const [pkg, quantities, total] of [
+for (const [pkg, quantities, total, delivery = false] of [
+  ['none', {tables:5,chairs:30},120,true], ['none', {tables:5,chairs:30},120], ['none',{tables:5,chairs:30,coolers:1},120], ['none',{tables:5,chairs:30,coolers:2},138],
   ['party60', {}, 200], ['cookout60', {}, 225], ['wholeparty', {}, 250],
   ['cookout60', {tables:1,chairs:1}, 236.5], ['none', {tables:1,chairs:1,coolers:1,speakers:1}, 69.5],
 ]) {
@@ -109,20 +114,26 @@ for (const [pkg, quantities, total] of [
   const selected = pkg === 'none' ? {value:'none',dataset:{price:'0'}} : {value:packages[pkg].name,dataset:{price:String(packages[pkg].price)}};
   for (const [key, rate] of Object.entries(rates)) {
     const el = node('#q-'+key);
-    const input = new RegExp(`id="q-${key}" data-price="([\\d.]+)" data-name="([^"]+)"`).exec(quote);
+    const input = new RegExp(`id="q-${key}"[^>]* data-price="([\\d.]+)" data-name="([^"]+)"`).exec(quote);
     el.value = String(quantities[key] || 0); el.dataset = {price:input[1],name:input[2]};
   }
   let mobileUpdates = 0;
   runInNewContext(read('assets/js/quote.js'), {
     document:{
-      querySelector:s => s === 'input[name=package]:checked' ? selected : s === 'input[name=fulfillment]:checked' ? {value:'Free Pickup'} : node(s),
+      querySelector:s => s === 'input[name=package]:checked' ? selected : s === 'input[name=fulfillment]:checked' ? {value:delivery?'Delivery & Setup':'Free Pickup'} : node(s),
       querySelectorAll:() => [], createElement:() => ({})
     },
-    location:{search:''},window:{rrQuoteBar(){mobileUpdates++;}}
+    location:{search:''},window:{rrQuoteHandoff:handoffWindow.rrQuoteHandoff,rrQuoteBar(){mobileUpdates++;}}
   });
   const number = s => Number(node(s).textContent.replace('$',''));
   const deposit = Math.round(total * 25) / 100;
-  assert.equal(number('#s-total'), total);
+  assert.equal(node('#s-total').textContent, '$'+(total%1?total.toFixed(2):total)+(delivery?' + delivery':''));
+  if (delivery) {
+    assert.equal(node('#s-deposit').textContent,'Confirmed with delivery');
+    assert.equal(node('#f-deposit').value,'To be confirmed');
+    assert.equal(node('#delivery-note').hidden,false);
+    continue;
+  }
   assert.equal(number('#s-deposit'), deposit);
   assert.equal(number('#s-balance'), Math.round((total-deposit)*100)/100);
   assert.equal(Math.round((number('#s-deposit') + number('#s-balance'))*100), Math.round(total*100));
