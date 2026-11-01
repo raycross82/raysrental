@@ -62,6 +62,9 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
 #quote-log{list-style:none;margin:0;padding:0}
 #quote-log li{padding:8px 0;border-top:1px solid var(--line);color:var(--ink);font-weight:650}
 #quote-log li:first-child{border-top:0}
+#quote-log .btn{width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere;margin-top:4px}
+#quote-log small{display:block;font-weight:400;margin-top:4px}
+[hidden]{display:none!important}
 .preview-wrap{margin-top:8px}
 .preview-shell{background:#d5dbe3;border-radius:12px;padding:16px;overflow:hidden}
 .preview-scale{width:100%;max-width:816px;margin:0 auto;overflow:hidden;height:1056px}
@@ -105,7 +108,13 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
 </header>
 <main>
   <div class="container">
-    <p class="lead">Enter the rental, then generate a branded customer quote. The PDF downloads and the preview stays on this page. This desk is only on Rentals HQ.</p>
+    <p class="lead">Save a quote to finish later, or generate a PDF and save it in one step. Reopen it any time to edit or download again.</p>
+    <div class="gq-share" style="margin-bottom:18px">
+      <a class="btn btn-outline" href="/?tab=Quotes">Saved quotes</a>
+      <button type="button" class="btn btn-outline" id="import-pdf">Open a quote PDF</button>
+      <input type="file" id="import-pdf-file" accept="application/pdf,.pdf" hidden>
+    </div>
+    <p class="legend-sub" id="editing-label">New quote</p>
     <form id="order-form" autocomplete="off">
       <div class="gq-layout">
         <div>
@@ -113,7 +122,7 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
             <h2>Customer</h2>
             <div class="two-col">
               <div><label for="i-name">Customer name *</label><input id="i-name" name="name" autocomplete="name" required></div>
-              <div><label for="i-phone">Phone *</label><input id="i-phone" name="phone" type="tel" autocomplete="tel" required></div>
+              <div><label for="i-phone">Phone</label><input id="i-phone" name="phone" type="tel" autocomplete="tel" required></div>
             </div>
             <label for="i-email">Email</label>
             <input id="i-email" name="email" type="email" autocomplete="email">
@@ -193,27 +202,31 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
           <div class="sline"><span>Setup / Teardown</span><span id="s-setup">$0.00</span></div>
           <div class="sline" id="s-discount-row" hidden><span>Discount</span><span id="s-discount">$0.00</span></div>
           <div class="sline total"><span>Total</span><span id="s-total">$0.00</span></div>
-          <div class="sline deposit"><span>20% deposit</span><span id="s-deposit">$0.00</span></div>
+          <div class="sline deposit"><span id="deposit-label">20% deposit</span><span id="s-deposit">$0.00</span></div>
           <div class="sline"><span>Remaining</span><span id="s-balance">$0.00</span></div>
           <p class="gq-cooler" id="s-cooler-note" hidden></p>
+          <p class="legend-sub" id="save-state" role="status"></p>
           <p class="gq-status" id="quote-status" role="status"></p>
           <div class="gq-share" aria-label="Save or send this quote">
-            <button type="button" class="btn btn-primary" id="save-booking" disabled>Save as booking</button>
+            <button type="button" class="btn btn-outline" id="save-booking" disabled>Save as booking</button>
             <button type="button" class="btn btn-outline" id="email-quote" disabled>Email</button>
             <button type="button" class="btn btn-outline" id="text-quote" disabled>Text</button>
             <a class="btn btn-outline" id="open-hq" href="/">Open HQ</a>
           </div>
-          <p class="legend-sub" id="share-hint">Save, email, and text turn on after Generate Quote. Saved bookings show on Rentals HQ.</p>
+          <p class="legend-sub" id="share-hint">Saving a quote keeps it in Quotes. Create a booking separately when the customer is ready.</p>
           <div class="gq-actions">
-            <button type="button" class="btn btn-primary" id="generate-quote">Generate Quote</button>
+            <button type="button" class="btn btn-primary" id="generate-quote">Save &amp; generate PDF</button>
+            <button type="button" class="btn btn-outline" id="save-quote">Save quote</button>
             <button type="button" class="btn btn-outline" id="download-pdf" disabled>Download PDF</button>
+            <a class="btn btn-outline" id="pdf-ready" hidden>Open PDF file</a>
             <button type="button" class="gq-text" id="download-html" disabled>Download HTML</button>
             <button type="button" class="gq-text" id="print-quote" disabled>Print</button>
             <button type="button" class="gq-text" id="load-sample">Load sample order</button>
-            <button type="button" class="gq-text" id="clear-order">Clear</button>
+            <button type="button" class="gq-text" id="clear-order">New quote</button>
           </div>
-          <h2 style="margin-top:22px">Recent quotes</h2>
-          <p class="legend-sub">Numbers from this browser. On Rentals HQ the counter is shared, so the same day continues RR-MMDD-01, RR-MMDD-02, and starts over the next day.</p>
+          <h2 style="margin-top:22px">Saved quotes</h2>
+          <label for="quote-search">Find a quote</label><input type="search" id="quote-search" placeholder="Customer or quote number">
+          <p class="legend-sub">Open a saved quote to edit it or download its PDF. PDFs created here can also be reopened with “Open a quote PDF.”</p>
           <ul id="quote-log"></ul>
         </aside>
       </div>
@@ -226,6 +239,6 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
 </main>
 <script src="/assets/js/vendor/html2canvas.min.js"></script>
 <script src="/assets/js/vendor/jspdf.umd.min.js"></script>
-<script type="module" src="/assets/js/admin-quote.js?v=5"></script>
+<script type="module" src="/assets/js/admin-quote.js?v=6"></script>
 </body>
 </html>

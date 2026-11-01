@@ -24,6 +24,7 @@ import {
   renderQuoteDocument,
   sanitizePaymentUrl,
 } from './quote-doc.js';
+import { newQuoteUid, normalizeOrder, orderForQuote, upsertSavedQuote, encodeQuotePdf, decodeQuotePdf } from './saved-quotes.js';
 
 const STORE_KEY = 'rr-quote-seq-v1';
 const FORM_KEY = 'rr-quote-form-v1';
@@ -66,6 +67,36 @@ let lastPriced = null;
 let savedNumber = '';
 let busy = false;
 let saving = false;
+let activeQuote = null;
+let extraOrder = {};
+let dirty = false;
+let savedFingerprint = '';
+let quoteList = [];
+let pdfUrl = '';
+function clearPdfFile() {
+  if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+  pdfUrl = ''; $('pdf-ready').hidden = true; $('pdf-ready').removeAttribute('href');
+}
+function fingerprint() { return JSON.stringify(normalizeOrder(readOrder())); }
+function updateSaveState() {
+  dirty = fingerprint() !== savedFingerprint;
+  if (dirty) clearPdfFile();
+  $('save-state').textContent = dirty ? 'Unsaved changes' : (activeQuote ? 'Saved quote — ready to reopen' : '');
+  $('download-pdf').disabled = !lastHtml || dirty || busy;
+  $('download-html').disabled = !lastHtml || dirty || busy;
+  $('print-quote').disabled = !lastHtml || dirty || busy;
+  syncShareButtons();
+}
+function clearActiveQuote() {
+  clearPdfFile();
+  activeQuote = null; extraOrder = {}; savedFingerprint = ''; lastHtml = ''; lastNumber = ''; lastPriced = null; savedNumber = '';
+  $('editing-label').textContent = 'New quote';
+  $('preview-wrap').hidden = true;
+  history.replaceState(null, '', location.pathname);
+  sessionStorage.removeItem('rr-active-quote-v1');
+}
+function confirmDiscard() { return !dirty || confirm('Leave the unsaved changes on this quote?'); }
+
 
 function loadStore() {
   try {
@@ -182,6 +213,7 @@ function syncSquareFields(opts = {}) {
 
 function readOrder() {
   return {
+    ...extraOrder,
     customerName: $('i-name').value,
     phone: $('i-phone').value,
     email: $('i-email').value,
@@ -237,6 +269,7 @@ function renderSidebar(priced) {
   }
   $('s-total').textContent = formatMoney(priced.totalCents);
   $('s-deposit').textContent = formatMoney(priced.depositCents);
+  $('deposit-label').textContent = `${priced.depositPercent}% deposit`;
   $('s-balance').textContent = formatMoney(priced.balanceCents);
   const note = $('s-cooler-note');
   if (priced.showPromo) {
@@ -260,9 +293,12 @@ function setQty(id, next) {
   const max = Number(el.max) || 999;
   el.value = String(Math.max(0, Math.min(max, next)));
   refresh();
+  persistForm();
+  updateSaveState();
 }
 
 function applyOrder(order) {
+  extraOrder = { depositPercent: order.depositPercent, depositWholeDollars: order.depositWholeDollars, bookingStart: order.bookingStart, bookingEnd: order.bookingEnd };
   $('i-name').value = order.customerName || '';
   $('i-phone').value = order.phone || '';
   $('i-email').value = order.email || '';
@@ -303,22 +339,42 @@ function applyOrder(order) {
 
 function renderLog() {
   const list = $('quote-log');
-  const store = loadStore();
+  const term = ($('quote-search').value || '').trim().toLowerCase();
+  const records = quoteList.filter(q => `${q.number} ${q.customer} ${q.phone}`.toLowerCase().includes(term)).sort((a, b) => b.id - a.id);
   list.replaceChildren();
-  if (!store.issued.length) {
+  if (!records.length) {
     const li = document.createElement('li');
-    li.className = 'note';
-    li.textContent = 'No quotes from this browser yet.';
-    list.appendChild(li);
-    return;
+    li.textContent = term ? 'No matching quotes.' : 'Your saved quotes will appear here.';
+    list.append(li);
   }
-  for (const entry of store.issued) {
+  for (const quote of records) {
     const li = document.createElement('li');
-    const num = document.createElement('b');
-    num.textContent = entry.number;
-    li.append(num, document.createTextNode(` · ${entry.customer || 'Customer'} · ${entry.total || ''}`));
-    list.appendChild(li);
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'btn btn-outline';
+    button.textContent = `${quote.customer || 'Customer'} · ${quote.number}`;
+    const detail = document.createElement('small');
+    detail.textContent = `${quote.status || 'Draft'} · ${formatMoney(priceOrder(orderForQuote(quote)).totalCents)} · Open / PDF`;
+    button.append(detail);
+    button.addEventListener('click', () => { if (confirmDiscard()) openSavedQuote(quote); });
+    li.append(button); list.append(li);
   }
+}
+
+function openSavedQuote(quote) {
+  clearPdfFile();
+  activeQuote = structuredClone(quote);
+  savedNumber = quote.status === 'Converted' ? quote.number : '';
+  const order = orderForQuote(quote);
+  extraOrder = { depositPercent: order.depositPercent, depositWholeDollars: order.depositWholeDollars, bookingStart: order.bookingStart, bookingEnd: order.bookingEnd };
+  applyOrder(order);
+  lastPriced = priceOrder(order); lastNumber = quote.number;
+  lastHtml = renderQuoteDocument(lastPriced, { quoteNumber: quote.number, quoteDate: quote.document?.date || String(quote.created || '').slice(0, 10) || chicagoDateParts(new Date()).key, assets });
+  savedFingerprint = fingerprint();
+  $('editing-label').textContent = `Editing ${quote.number} · ${quote.customer || 'Customer'}`;
+  history.replaceState(null, '', `${location.pathname}?id=${encodeURIComponent(quote.id)}`);
+  sessionStorage.setItem('rr-active-quote-v1', JSON.stringify({ id: quote.id, fingerprint: savedFingerprint }));
+  persistForm(); showPreview(lastHtml); updateSaveState();
+  status('Quote opened. Edit and save, or download the PDF again.', 'ok');
 }
 
 function blobDownload(filename, blob) {
@@ -353,7 +409,6 @@ async function loadAssets() {
 
 function validate(order, priced) {
   if (!order.customerName) return 'Enter the customer name.';
-  if (!order.phone) return 'Enter a phone number.';
   if (!order.rentalDate) return 'Enter the rental date.';
   if (!priced.lines.length) return 'Add at least one rental item.';
   for (const id of ['i-delivery', 'i-setup', 'i-discount']) {
@@ -449,7 +504,7 @@ function showPreview(html) {
   $('preview-wrap').hidden = false;
 }
 
-async function downloadPdf(html, filename) {
+async function downloadPdf(html, filename, record = activeQuote) {
   if (typeof window.html2canvas !== 'function' || !window.jspdf || !window.jspdf.jsPDF) {
     throw new Error('PDF library did not load');
   }
@@ -496,7 +551,12 @@ async function downloadPdf(html, filename) {
       const drawH = pages === 1 ? pageH : (sh / canvas.width) * pageW;
       pdf.addImage(slice.toDataURL('image/png'), 'PNG', 0, 0, pageW, drawH);
     }
-    pdf.save(filename);
+    if (record?.document) pdf.setProperties({ title: `Ray’s Rentals ${record.number}`, subject: encodeQuotePdf(record) });
+    clearPdfFile();
+    const blob = pdf.output('blob'); pdfUrl = URL.createObjectURL(blob);
+    $('pdf-ready').href = pdfUrl; $('pdf-ready').download = filename; $('pdf-ready').target = '_blank'; $('pdf-ready').hidden = false;
+    $('pdf-ready').click();
+    status(`${lastNumber} PDF is ready. Your editable quote stays in Saved quotes.`, 'ok');
   } finally {
     iframe.remove();
   }
@@ -523,64 +583,58 @@ function printQuote() {
   win.addEventListener('load', () => setTimeout(kick, 250));
 }
 
-async function generate() {
-  if (busy) return;
-  const order = readOrder();
+async function generate(download = true) {
+  if (busy || saving) return;
+  const order = normalizeOrder(readOrder());
   const priced = priceOrder(order);
-  const problem = validate(order, priced);
-  if (problem) {
-    status(problem, 'err');
-    return;
-  }
+  const problem = download ? validate(order, priced) : (!order.customerName ? 'Enter the customer name to save this quote.' : '');
+  if (problem) { status(problem, 'err'); return; }
   busy = true;
+  $('order-form').inert = true; $('import-pdf').disabled = true;
   $('generate-quote').disabled = true;
-  status('Assigning quote number…', '');
+  $('save-quote').disabled = true;
+  status('Saving quote…', '');
   try {
-    const { assigned, store } = await takeNumber();
-    const html = renderQuoteDocument(priced, {
-      quoteNumber: assigned.number,
-      quoteDate: assigned.date,
-      assets,
-    });
-    lastHtml = html;
-    lastNumber = assigned.number;
-    lastPriced = priced;
-    if (savedNumber !== assigned.number) savedNumber = '';
-    syncShareButtons();
-    store.issued = [{
-      number: assigned.number,
-      customer: priced.customerName,
-      total: formatMoney(priced.totalCents),
-      at: new Date().toISOString(),
-      source: assigned.source,
-    }, ...store.issued].slice(0, 40);
-    saveStore(store);
-    renderLog();
-    showPreview(html);
-    $('download-pdf').disabled = false;
-    $('download-html').disabled = false;
-    $('print-quote').disabled = false;
-    const where = assigned.source === 'site'
-      ? 'Saved for the whole site.'
-      : 'Saved in this browser only — the shared site counter could not be reached.';
-    status(`${assigned.number} is ready. ${where}`, 'ok');
-    $('preview-wrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    try {
-      await downloadPdf(html, quoteFilename(assigned.number, 'pdf'));
-    } catch {
-      status(`${assigned.number} is in the preview. The PDF download didn’t finish — use Print and choose Save as PDF.`, 'err');
+    let assigned;
+    if (activeQuote) {
+      assigned = { number: activeQuote.number, date: activeQuote.document?.date || String(activeQuote.created || '').slice(0, 10) || chicagoDateParts(new Date()).key };
+    } else {
+      const taken = await takeNumber(); assigned = taken.assigned; saveStore(taken.store);
+      // Retain identity even if storage fails, so retrying never issues a duplicate.
+      activeQuote = { number: assigned.number, document: { uid: newQuoteUid(), date: assigned.date } };
+    }
+    const { store, canPush, remoteStamp } = await freshestTracker();
+    const existing = store.quotes.find(q => q.id === activeQuote.id);
+    if (existing && existing.updatedAt !== activeQuote.updatedAt) throw new Error('This quote changed in another window. Reopen it from Saved quotes before editing again.');
+    const result = upsertSavedQuote(store, { id: activeQuote.id, uid: activeQuote.document?.uid, number: assigned.number, date: assigned.date, order });
+    localStorage.setItem(TRACKER_KEY, JSON.stringify(result.store));
+    activeQuote = structuredClone(result.quote); quoteList = result.store.quotes;
+    let synced = false;
+    if (canPush) { try { synced = await cloudPush(result.store, remoteStamp); } catch {} }
+    openSavedQuote(result.quote); renderLog();
+    $('save-state').textContent = synced ? 'Saved to HQ and synced' : 'Saved on this device · cloud sync unavailable';
+    status(`${assigned.number} saved in Quotes.${synced ? '' : ' Keep using this device until cloud sync returns.'}`, 'ok');
+    if (download) {
+      try { await downloadPdf(lastHtml, quoteFilename(lastNumber, 'pdf')); }
+      catch { status(`${lastNumber} is saved. The PDF download didn’t finish — try Download PDF again.`, 'err'); }
     }
   } catch (err) {
-    status(err && err.message ? err.message : 'Could not generate the quote.', 'err');
+    status(err?.message || 'Could not save the quote. Your entries are still here.', 'err');
   } finally {
     busy = false;
-    $('generate-quote').disabled = false;
+    $('order-form').inert = false; $('import-pdf').disabled = false;
+    $('generate-quote').disabled = false; $('save-quote').disabled = false;
+    $('download-pdf').disabled = !lastHtml || dirty;
+    $('download-html').disabled = !lastHtml || dirty;
+    $('print-quote').disabled = !lastHtml || dirty;
+    syncShareButtons();
   }
 }
 
 function persistForm() {
   try {
     sessionStorage.setItem(FORM_KEY, JSON.stringify(readOrder()));
+    if (activeQuote) sessionStorage.setItem('rr-active-quote-v1', JSON.stringify({ id: activeQuote.id, fingerprint: savedFingerprint, draft: activeQuote.id == null ? activeQuote : undefined }));
   } catch {
     /* ignore */
   }
@@ -595,21 +649,29 @@ $('order-form').addEventListener('submit', (ev) => {
 $('order-form').addEventListener('input', () => {
   refresh();
   persistForm();
+  updateSaveState();
 });
 $('order-form').addEventListener('change', () => {
   refresh();
   persistForm();
+  updateSaveState();
 });
 $('i-include-square').addEventListener('change', () => {
   syncSquareFields({ focus: true });
   persistForm();
+  updateSaveState();
 });
 $('load-sample').addEventListener('click', () => {
+  if (!confirmDiscard()) return;
+  clearActiveQuote();
   applyOrder(SAMPLE_ORDER);
   persistForm();
+  updateSaveState();
   status('Sample order loaded. Generate Quote assigns today’s next number. Square stays off.', '');
 });
 $('clear-order').addEventListener('click', () => {
+  if (!confirmDiscard()) return;
+  clearActiveQuote();
   applyOrder({
     dropoff: 'Evening before the event',
     pickup: 'Morning after the event',
@@ -622,6 +684,7 @@ $('clear-order').addEventListener('click', () => {
     squarePaymentUrl: '',
   });
   persistForm();
+  savedFingerprint = fingerprint(); updateSaveState();
   status('', '');
 });
 function phoneDigits(value) {
@@ -629,7 +692,7 @@ function phoneDigits(value) {
 }
 
 function syncShareButtons() {
-  const ready = !!(lastNumber && lastPriced);
+  const ready = !!(lastNumber && lastPriced) && !dirty && !busy;
   const email = ready && String(lastPriced.email || '').trim();
   const phone = ready && phoneDigits(lastPriced.phone);
   const saveBtn = $('save-booking');
@@ -645,15 +708,15 @@ function syncShareButtons() {
   const hint = $('share-hint');
   if (!hint) return;
   if (!ready) {
-    hint.textContent = 'Save, email, and text turn on after Generate Quote. Saved bookings show on Rentals HQ.';
+    hint.textContent = 'Save your changes to update the PDF, email, or text. Saving a quote does not create a booking.';
   } else if (savedNumber === lastNumber) {
     hint.textContent = `${lastNumber} is already a Deposit Due booking. Open HQ to see it.`;
   } else if (!email && !phone) {
     hint.textContent = `${lastNumber} is ready. Add a phone or email and generate again to text or email it.`;
   } else if (!email) {
-    hint.textContent = `${lastNumber} is ready to save or text. No email on this quote.`;
+    hint.textContent = `${lastNumber} is saved. Download the PDF to attach it to a text.`;
   } else if (!phone) {
-    hint.textContent = `${lastNumber} is ready to save or email. No phone number on this quote.`;
+    hint.textContent = `${lastNumber} is saved. Download the PDF to attach it to an email.`;
   } else {
     hint.textContent = `${lastNumber} is ready. Save it as a booking, or email / text the summary. Attach the PDF from Downloads.`;
   }
@@ -693,7 +756,7 @@ function loadTracker() {
 }
 
 async function cloudPull() {
-  if (location.protocol === 'file:') return undefined;
+  if (location.protocol === 'file:' || ['localhost', '127.0.0.1', 'terminal.local'].includes(location.hostname)) return undefined;
   const r = await fetch(`${SYNC.url}?id=eq.${SYNC.id}&select=data,updated_at`, {
     headers: syncHeaders(),
     signal: AbortSignal.timeout(4000),
@@ -703,14 +766,16 @@ async function cloudPull() {
   return rows[0] || null;
 }
 
-async function cloudPush(S) {
-  if (location.protocol === 'file:') return false;
-  const r = await fetch(`${SYNC.url}?on_conflict=id`, {
-    method: 'POST',
-    headers: { ...syncHeaders(), Prefer: 'resolution=merge-duplicates' },
-    body: JSON.stringify([{ id: SYNC.id, data: S, updated_at: new Date().toISOString() }]),
+async function cloudPush(S, remoteStamp) {
+  if (location.protocol === 'file:' || ['localhost', '127.0.0.1', 'terminal.local'].includes(location.hostname)) return false;
+  const conditional = typeof remoteStamp === 'string';
+  const row = { id: SYNC.id, data: S, updated_at: new Date().toISOString() };
+  const r = await fetch(conditional ? `${SYNC.url}?id=eq.${SYNC.id}&updated_at=eq.${encodeURIComponent(remoteStamp)}` : `${SYNC.url}?on_conflict=id`, {
+    method: conditional ? 'PATCH' : 'POST',
+    headers: { ...syncHeaders(), Prefer: conditional ? 'return=representation' : 'resolution=merge-duplicates' },
+    body: JSON.stringify(conditional ? row : [row]), signal: AbortSignal.timeout(5000),
   });
-  return r.ok;
+  return r.ok && (!conditional || (await r.json()).length === 1);
 }
 
 async function freshestTracker() {
@@ -721,15 +786,15 @@ async function freshestTracker() {
     const remote = await cloudPull();
     if (remote === undefined) return { store: local, canPush: false };
     const remoteRev = remote && remote.data ? Number(remote.data.rev) || 0 : 0;
-    if (remote && remote.data && typeof remote.data === 'object' && remoteRev > (Number(local.rev) || 0)) {
+    if (remote && remote.data && typeof remote.data === 'object' && remoteRev >= (Number(local.rev) || 0)) {
       const S = remote.data;
       if (!S.settings || typeof S.settings !== 'object') S.settings = { orderUrl: '' };
       migrateTrackerStore(S);
       if (!Array.isArray(S.bookings)) S.bookings = [];
       if (!Array.isArray(S.inventory)) S.inventory = structuredClone(TRACKER_SEED.inventory);
-      return { store: S, canPush: true };
+      return { store: S, canPush: true, remoteStamp: remote.updated_at };
     }
-    return { store: local, canPush: true };
+    return { store: local, canPush: true, remoteStamp: remote?.updated_at };
   } catch {
     return { store: local, canPush: false };
   }
@@ -742,9 +807,19 @@ async function saveAsBooking() {
   const number = lastNumber;
   try {
     const draft = quoteBookingDraft(lastPriced, number);
-    const { store, canPush } = await freshestTracker();
+    const { store, canPush, remoteStamp } = await freshestTracker();
+    if (extraOrder.bookingStart) draft.start = extraOrder.bookingStart;
+    if (extraOrder.bookingEnd) draft.end = extraOrder.bookingEnd;
     const result = appendQuoteBooking(store, draft);
+    const savedQuote = store.quotes.find(q => q.id === activeQuote?.id);
+    if (savedQuote) {
+      savedQuote.status = 'Converted'; savedQuote.bookingId = result.booking.id;
+      savedQuote.updatedAt = new Date().toISOString();
+      if (!result.created) store.rev = (Number(store.rev) || 0) + 1;
+      activeQuote = structuredClone(savedQuote); quoteList = store.quotes; renderLog();
+    }
     if (!result.created) {
+      if (canPush && savedQuote) { try { await cloudPush(result.store, remoteStamp); } catch {} }
       savedNumber = number;
       try {
         localStorage.setItem(TRACKER_KEY, JSON.stringify(result.store));
@@ -767,7 +842,7 @@ async function saveAsBooking() {
     let synced = false;
     if (canPush) {
       try {
-        synced = await cloudPush(result.store);
+        synced = await cloudPush(result.store, remoteStamp);
       } catch {
         synced = false;
       }
@@ -810,7 +885,9 @@ function textQuote() {
   window.location.href = quoteSmsHref(phone, quoteShareSummary(lastPriced, lastNumber));
 }
 
-$('generate-quote').addEventListener('click', generate);
+$('generate-quote').addEventListener('click', () => generate(true));
+$('save-quote').addEventListener('click', () => generate(false));
+$('quote-search').addEventListener('input', renderLog);
 $('save-booking').addEventListener('click', saveAsBooking);
 $('email-quote').addEventListener('click', emailQuote);
 $('text-quote').addEventListener('click', textQuote);
@@ -829,29 +906,65 @@ $('download-html').addEventListener('click', downloadHtml);
 $('print-quote').addEventListener('click', printQuote);
 window.addEventListener('resize', fitPreview);
 
-(async function init() {
-  status('Loading brand artwork…', '');
+$('import-pdf').addEventListener('click', () => $('import-pdf-file').click());
+$('import-pdf-file').addEventListener('change', async () => {
+  const file = $('import-pdf-file').files[0];
+  if (!file) return;
   try {
-    await loadAssets();
-  } catch {
-    status('Brand artwork did not load. Quotes will still generate with image links.', 'err');
-  }
-  let restored = false;
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(FORM_KEY) || 'null');
-    if (saved && typeof saved === 'object') {
-      applyOrder(saved);
-      restored = true;
+    if (!confirmDiscard()) return;
+    if (file.size > 25 * 1024 * 1024) throw new Error('Choose a PDF smaller than 25 MB.');
+    const imported = decodeQuotePdf(new Uint8Array(await file.arrayBuffer()));
+    const current = quoteList.find(q => q.document?.uid === imported.uid);
+    if (current) { openSavedQuote(current); status('Opened the saved version of this quote. Your latest edits are preserved.', 'ok'); }
+    else {
+      clearActiveQuote();
+      activeQuote = { number: imported.number, document: { uid: imported.uid, date: imported.date } };
+      extraOrder = { depositPercent: imported.order.depositPercent, depositWholeDollars: imported.order.depositWholeDollars, bookingStart: imported.order.bookingStart, bookingEnd: imported.order.bookingEnd };
+      applyOrder(imported.order); persistForm(); updateSaveState();
+      $('editing-label').textContent = `Imported ${imported.number}`;
+      status('PDF details restored. Review them, then tap Save quote.', 'ok');
     }
-  } catch {
-    restored = false;
+  } catch (error) { status(error.message || 'Could not open this PDF.', 'err'); }
+  finally { $('import-pdf-file').value = ''; }
+});
+for (const id of ['i-date', 'i-dropoff', 'i-pickup']) $(id).addEventListener('change', () => { delete extraOrder.bookingStart; delete extraOrder.bookingEnd; persistForm(); updateSaveState(); });
+window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('storage', event => { if (event.key === TRACKER_KEY) { quoteList = loadTracker().quotes; renderLog(); } });
+
+(async function init() {
+  status('Loading your quotes…', '');
+  try { await loadAssets(); } catch {}
+  const { store } = await freshestTracker();
+  quoteList = store.quotes; renderLog();
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if (id) {
+    const quote = quoteList.find(q => String(q.id) === id);
+    if (quote) {
+      let pending = null, form = null;
+      try { pending = JSON.parse(sessionStorage.getItem('rr-active-quote-v1')); form = JSON.parse(sessionStorage.getItem(FORM_KEY)); } catch {}
+      openSavedQuote(quote);
+      if (pending?.id === quote.id && form && JSON.stringify(normalizeOrder(form)) !== pending.fingerprint) { applyOrder(form); persistForm(); updateSaveState(); status('Your unsaved edits were restored. Save to update this quote.', ''); }
+      if (params.get('download') === '1' && !dirty) {
+        try { if (!quote.document) await generate(true); else await downloadPdf(lastHtml, quoteFilename(lastNumber, 'pdf')); }
+        catch { status('Quote opened. Tap Download PDF to try again.', 'err'); }
+      }
+      return;
+    }
+    status('This quote was not found on this device or in cloud sync. Open Saved quotes to choose it again.', 'err');
+  } else {
+    let restored = false;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(FORM_KEY) || 'null');
+      const pending = JSON.parse(sessionStorage.getItem('rr-active-quote-v1') || 'null');
+      if (saved && (!pending || pending.draft)) {
+        if (pending?.draft) { activeQuote = pending.draft; $('editing-label').textContent = `Imported ${activeQuote.number}`; }
+        applyOrder(saved); restored = true;
+      }
+    } catch {}
+    if (!restored && params.get('sample') === '1') applyOrder(SAMPLE_ORDER);
+    savedFingerprint = restored ? '' : fingerprint();
+    status('Enter the rental, then Save quote or Save & generate PDF.', '');
   }
-  if (!restored && new URLSearchParams(location.search).get('sample') === '1') {
-    applyOrder(SAMPLE_ORDER);
-  }
-  syncSquareFields();
-  refresh();
-  renderLog();
-  syncShareButtons();
-  if (!$('quote-status').textContent) status('Fill in the order, then Generate Quote.', '');
+  syncSquareFields(); refresh(); updateSaveState();
 })();

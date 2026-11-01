@@ -547,10 +547,31 @@ function orderPageUrl(){
   return '';
 }
 function save(){
+  mergeSavedQuotes();
   S.rev=(S.rev||0)+1;
   localStorage.setItem(KEY, JSON.stringify(S));
   if(syncReady){ setSyncBadge('saving'); clearTimeout(pushTimer); pushTimer=setTimeout(cloudPush,1200); }
 }
+
+function mergeSavedQuotes(){
+  try {
+    const local=JSON.parse(localStorage.getItem(KEY)||'null');
+    for(const quote of local?.quotes||[]){
+      if(!quote.document) continue;
+      const current=S.quotes.find(q=>q.id===quote.id);
+      if(!current) S.quotes.push(quote);
+      else if((quote.updatedAt||'')>(current.updatedAt||'')) Object.assign(current,quote);
+    }
+    S.rev=Math.max(S.rev||0,local?.rev||0); migrateStore(S);
+  }catch{}
+}
+window.addEventListener('storage',event=>{
+  if(event.key!==KEY) return;
+  try {
+    const local=JSON.parse(event.newValue);
+    if(local && (local.rev||0)>(S.rev||0)){ S=local; migrateStore(S); render(); }
+  }catch{}
+});
 
 /* ---------------- live cloud sync (Supabase) ---------------- */
 const SYNC={
@@ -559,7 +580,7 @@ const SYNC={
   id:'main'
 };
 let syncReady=false, pushTimer=null;
-const syncOn = location.protocol!=='file:';
+const syncOn = location.protocol!=='file:' && !['localhost','127.0.0.1','terminal.local'].includes(location.hostname);
 function syncHeaders(){ return {apikey:SYNC.key, Authorization:'Bearer '+SYNC.key, 'Content-Type':'application/json'}; }
 function setSyncBadge(state){
   const b=document.getElementById('syncBadge'); if(!b) return;
@@ -835,7 +856,7 @@ function termsLine(b){
 
 /* ---------------- nav ---------------- */
 const TABS=['Dashboard','Bookings','Quotes','Calendar','Inventory','Money','Customers','Subs','Leads'];
-let tab='Dashboard', calMonth=new Date(); calMonth.setDate(1);
+let tab=new URLSearchParams(location.search).get('tab')==='Quotes'?'Quotes':'Dashboard', calMonth=new Date(); calMonth.setDate(1);
 function renderNav(){
   $('nav').innerHTML=TABS.map(t=>`<button class="${t===tab?'active':''}" onclick="go('${t}')">${t}</button>`).join('');
 }
@@ -1606,6 +1627,10 @@ function quoteDays(start,end){
 }
 function quoteQty(q,id){ return Math.max(0, Math.round(+q?.items?.[id]||0)); }
 function quoteTotals(q){
+  if(q?.document?.version===1){
+    const totals=q.document.totals;
+    return {days:1,lines:[],...totals};
+  }
   const days=quoteDays(q&&q.start, q&&q.end);
   const lines=QUOTE_ITEM_IDS.map(id=>{
     const qty=quoteQty(q,id), rate=QUOTE_RATES[id];
@@ -1698,7 +1723,7 @@ function dashQuotesPanel(){
     <h2>Quotes pipeline
       <span class="toolbar">
         <a class="btn accent sm" href="/quote/" style="text-decoration:none">Generate Quote</a>
-        <button class="btn accent sm" onclick="openQuote()">+ New quote</button>
+        <button class="btn accent sm" onclick="openQuote()">+ Agreement quote</button>
         <button class="btn sm ghost" onclick="go('Quotes')">View all</button>
       </span>
     </h2>
@@ -1709,11 +1734,17 @@ function dashQuotesPanel(){
 function quoteCard(q){
   const t=quoteTotals(q);
   const phone=String(q.phone||'').trim();
+  const quoteMoney=n=>q.document?'$'+Number(n||0).toFixed(2):fmt$(n);
   const acts=[];
+  const pdfUrl='/quote/?id='+encodeURIComponent(q.id);
+  acts.push(`<a class="q-act prim" href="${pdfUrl}&amp;download=1">Download PDF</a>`);
+  acts.push(`<a class="q-act" href="${pdfUrl}">Open / edit PDF quote</a>`);
+  if(!q.document){
   acts.push(`<button class="q-act prim" type="button" onclick="copyQuoteLink(${q.id},this)">&#128279; Copy link</button>`);
   acts.push(phone
     ? `<a class="q-act sms" href="${esc(quoteSmsHref(q))}">&#128172; Text to customer</a>`
     : `<button class="q-act" type="button" disabled title="No phone number on this quote &mdash; tap Edit and add one to text it.">&#128172; Text to customer</button>`);
+  }
   if(q.status!=='Sent' && q.status!=='Converted')
     acts.push(`<button class="q-act" type="button" onclick="markQuoteSent(${q.id})">&#128228; Mark Sent</button>`);
   if(q.status!=='Signed' && q.status!=='Converted')
@@ -1723,7 +1754,7 @@ function quoteCard(q){
     : `<button class="q-act" type="button" disabled title="${q.status==='Converted'?'Already converted to a booking.':'Mark this quote Signed first &mdash; only a signed agreement becomes a booking.'}">&rarr; Convert to booking</button>`);
   if(q.status==='Converted' && q.bookingId!=null)
     acts.push(`<button class="q-act" type="button" onclick="openBooking(${q.bookingId})">Open booking</button>`);
-  acts.push(`<button class="q-act" type="button" onclick="openQuote(${q.id})">Edit</button>`);
+  if(!q.document) acts.push(`<button class="q-act" type="button" onclick="openQuote(${q.id})">Edit agreement quote</button>`);
   acts.push(`<button class="q-act del" type="button" onclick="deleteQuoteById(${q.id})">Delete</button>`);
   const stamps=[
     q.sentAt?'Sent '+fmtD(q.sentAt):'',
@@ -1734,12 +1765,12 @@ function quoteCard(q){
       <div>
         <b style="font-size:15px">${esc(q.number||'Q-?')}</b> ${quoteTag(q.status)}
         <div style="font-weight:700;margin-top:3px;font-size:14.5px">${esc(q.customer||'(no name)')}</div>
-        <div class="muted" style="margin-top:3px">${q.start?esc(fmtD(q.start)):'No date'} &middot; ${t.days} day${t.days===1?'':'s'} &middot; ${itemsSummary(q.items)}</div>
+        <div class="muted" style="margin-top:3px">${q.document?.order?.rentalDate?esc(fmtD(q.document.order.rentalDate+'T12:00')):(q.start?esc(fmtD(q.start)):'No date')} &middot; ${q.document?'Saved PDF quote':t.days+' day'+(t.days===1?'':'s')} &middot; ${itemsSummary(q.items)}</div>
         ${stamps?`<div class="muted" style="margin-top:3px">${stamps}</div>`:''}
       </div>
       <div style="text-align:right">
-        <div style="font-size:19px;font-weight:800">${fmt$(t.total)}</div>
-        <div class="muted">${fmt$(t.deposit)} deposit</div>
+        <div style="font-size:19px;font-weight:800">${quoteMoney(t.total)}</div>
+        <div class="muted">${quoteMoney(t.deposit)} deposit</div>
       </div>
     </div>
     <div class="q-acts">${acts.join('')}</div>
@@ -1752,11 +1783,11 @@ function viewQuotes(){
   <div class="quotes-tab">
   <div class="panel">
     <h2>Quotes
-      <span class="toolbar"><a class="btn accent" href="/quote/" style="text-decoration:none">Generate Quote</a><button class="btn accent" onclick="openQuote()">+ New quote</button></span>
+      <span class="toolbar"><a class="btn accent" href="/quote/" style="text-decoration:none">Generate Quote</a><button class="btn accent" onclick="openQuote()">+ Agreement quote</button></span>
     </h2>
     ${quoteSumHtml(st)}
-    <div class="muted" style="margin:12px 0 14px;line-height:1.6">Build the quote, tap <b>Copy link</b> or <b>Text to customer</b>, and the customer signs the rental agreement on raysrental.com. The signed copy is emailed to you &mdash; tap <b>Mark Signed</b> here when it arrives, then <b>Convert to booking</b>.</div>
-    ${list.length? list.map(quoteCard).join('') : '<div class="empty">No quotes yet. Tap <b>+ New quote</b> to build one and text it in under a minute.</div>'}
+    <div class="muted" style="margin:12px 0 14px;line-height:1.6">Generate a PDF to save an editable quote here automatically. Tap <b>Download PDF</b> to get it again, or <b>Open / edit PDF quote</b> to update it. Saving a quote does not create a booking. Agreement quotes keep their existing links and signing steps.</div>
+    ${list.length? list.map(quoteCard).join('') : '<div class="empty">No saved quotes yet. Tap <b>Generate Quote</b> to create your first PDF quote.</div>'}
   </div></div>`;
 }
 
@@ -1802,6 +1833,7 @@ function openQuote(id){
   editingQuoteId=id||null;
   const q=id? quoteById(id) : {};
   if(id&&!q) return;
+  if(q.document){ location.href='/quote/?id='+encodeURIComponent(q.id); return; }
   $('quoteModalTitle').textContent=id? 'Edit '+(q.number||'quote') : 'New quote';
   const cur=q.status||'Draft';
   const opts=QUOTE_STATUSES.includes(cur)? QUOTE_STATUSES : QUOTE_STATUSES.concat([cur]);
@@ -1860,6 +1892,7 @@ function deleteQuoteById(id){
   const q=quoteById(id); if(!q) return;
   if(!confirm('Delete '+q.number+' for '+(q.customer||'this customer')+'? This cannot be undone.')) return;
   S.quotes=quotes().filter(x=>x.id!==id);
+  localStorage.setItem(KEY,JSON.stringify(S));
   save(); render();
   toast(q.number+' deleted');
 }
@@ -1897,7 +1930,7 @@ function convertQuote(id){
   const base=String(q.notes||'').trim();
   const b={ id:S.nextId++, customer:q.customer, phone:q.phone||'', address:q.address||'',
     start:q.start||'', end:q.end||'', items, price:t.total, paid:0,
-    status:'Deposit Due', notes:(base? base+' — ':'')+'From '+q.number };
+    status:'Deposit Due', quoteNumber:q.number, notes:(base? base+' — ':'')+'From '+q.number };
   S.bookings.push(b);
   q.status='Converted'; q.bookingId=b.id;
   save(); render();
