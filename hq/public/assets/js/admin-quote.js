@@ -9,13 +9,11 @@ import {
   QUOTE_ASSETS,
   SAMPLE_ORDER,
   allocateSeq,
-  appendQuoteBooking,
   chicagoDateParts,
   formatMoney,
   formatQuoteNumber,
   migrateTrackerStore,
   priceOrder,
-  quoteBookingDraft,
   quoteEmailDraft,
   quoteFilename,
   quoteMailtoHref,
@@ -23,8 +21,8 @@ import {
   quoteSmsHref,
   renderQuoteDocument,
   sanitizePaymentUrl,
-} from './quote-doc.js';
-import { newQuoteUid, normalizeOrder, orderForQuote, upsertSavedQuote, encodeQuotePdf, decodeQuotePdf } from './saved-quotes.js';
+} from './quote-doc.js?v=20261101';
+import { newQuoteUid, normalizeOrder, orderForQuote, upsertSavedQuote, encodeQuotePdf, decodeQuotePdf, convertSavedQuote } from './saved-quotes.js?v=20261101';
 
 const STORE_KEY = 'rr-quote-seq-v1';
 const FORM_KEY = 'rr-quote-form-v1';
@@ -39,10 +37,10 @@ const SYNC = {
 // seed so the first save does not wipe the sample bookings HQ would have created.
 const TRACKER_SEED = {
   inventory: [
-    { id: 'tables', name: '6-ft Folding Tables', qty: 15, price: 8 },
-    { id: 'chairs', name: 'Folding Chairs', qty: 90, price: 2 },
-    { id: 'coolers', name: 'Drink Coolers', qty: 3, price: 12 },
-    { id: 'speakers', name: 'JBL PartyBox Speaker', qty: 1, price: 30 },
+    { id: 'tables', name: '6-ft Folding Tables', qty: 15, price: 9 },
+    { id: 'chairs', name: 'Folding Chairs', qty: 90, price: 2.5 },
+    { id: 'coolers', name: 'Drink Coolers', qty: 3, price: 18 },
+    { id: 'speakers', name: 'JBL PartyBox Speaker', qty: 1, price: 40 },
   ],
   bookings: [],
   leads: [],
@@ -136,7 +134,7 @@ function moneyInput(cents) {
 function catalogNote(item) {
   const price = moneyInput(item.rateCents);
   if (item.id === 'table-set') return `${item.detail} · default $${price} (also used at $18)`;
-  if (item.cooler) return 'Free when the other items total $50 or more · extra coolers $' + price;
+  if (item.cooler) return 'Free when the eligible rentals total $100 or more · extra coolers $' + price;
   if (item.detail) return `${item.detail} · $${price}`;
   return `$${price}`;
 }
@@ -274,10 +272,10 @@ function renderSidebar(priced) {
   const note = $('s-cooler-note');
   if (priced.showPromo) {
     note.hidden = false;
-    note.textContent = '1 free cooler included — item subtotal is $50 or more.';
-  } else if (priced.qualifyingCents > 0 && priced.qualifyingCents < 5000) {
+    note.textContent = `1 free cooler included — eligible rentals total $${priced.freeCoolerMinimumCents / 100} or more.`;
+  } else if (priced.qualifyingCents > 0 && priced.qualifyingCents < priced.freeCoolerMinimumCents && !priced.packageIncludesCoolers) {
     note.hidden = false;
-    note.textContent = `Item subtotal is ${formatMoney(priced.qualifyingCents)}. A cooler is free at $50.`;
+    note.textContent = `Item subtotal is ${formatMoney(priced.qualifyingCents)}. A cooler is free at $${priced.freeCoolerMinimumCents / 100}.`;
   } else {
     note.hidden = true;
     note.textContent = '';
@@ -298,7 +296,7 @@ function setQty(id, next) {
 }
 
 function applyOrder(order) {
-  extraOrder = { depositPercent: order.depositPercent, depositWholeDollars: order.depositWholeDollars, bookingStart: order.bookingStart, bookingEnd: order.bookingEnd };
+  extraOrder = { pricingVersion: order.pricingVersion, depositPercent: order.depositPercent, depositWholeDollars: order.depositWholeDollars, bookingStart: order.bookingStart, bookingEnd: order.bookingEnd };
   $('i-name').value = order.customerName || '';
   $('i-phone').value = order.phone || '';
   $('i-email').value = order.email || '';
@@ -365,7 +363,7 @@ function openSavedQuote(quote) {
   activeQuote = structuredClone(quote);
   savedNumber = quote.status === 'Converted' ? quote.number : '';
   const order = orderForQuote(quote);
-  extraOrder = { depositPercent: order.depositPercent, depositWholeDollars: order.depositWholeDollars, bookingStart: order.bookingStart, bookingEnd: order.bookingEnd };
+  extraOrder = { pricingVersion: order.pricingVersion, depositPercent: order.depositPercent, depositWholeDollars: order.depositWholeDollars, bookingStart: order.bookingStart, bookingEnd: order.bookingEnd };
   applyOrder(order);
   lastPriced = priceOrder(order); lastNumber = quote.number;
   lastHtml = renderQuoteDocument(lastPriced, { quoteNumber: quote.number, quoteDate: quote.document?.date || String(quote.created || '').slice(0, 10) || chicagoDateParts(new Date()).key, assets });
@@ -703,7 +701,7 @@ function syncShareButtons() {
   const emailBtn = $('email-quote');
   const textBtn = $('text-quote');
   if (!saveBtn || !emailBtn || !textBtn) return;
-  saveBtn.disabled = !ready || saving;
+  saveBtn.disabled = !ready || saving || savedNumber === lastNumber;
   saveBtn.textContent = ready && savedNumber === lastNumber ? 'Saved as booking' : 'Save as booking';
   emailBtn.disabled = !email;
   textBtn.disabled = !phone;
@@ -810,18 +808,10 @@ async function saveAsBooking() {
   syncShareButtons();
   const number = lastNumber;
   try {
-    const draft = quoteBookingDraft(lastPriced, number);
     const { store, canPush, remoteStamp } = await freshestTracker();
-    if (extraOrder.bookingStart) draft.start = extraOrder.bookingStart;
-    if (extraOrder.bookingEnd) draft.end = extraOrder.bookingEnd;
-    const result = appendQuoteBooking(store, draft);
+    const result = convertSavedQuote(store, activeQuote?.id);
     const savedQuote = store.quotes.find(q => q.id === activeQuote?.id);
-    if (savedQuote) {
-      savedQuote.status = 'Converted'; savedQuote.bookingId = result.booking.id;
-      savedQuote.updatedAt = new Date().toISOString();
-      if (!result.created) store.rev = (Number(store.rev) || 0) + 1;
-      activeQuote = structuredClone(savedQuote); quoteList = store.quotes; renderLog();
-    }
+    activeQuote = structuredClone(savedQuote); quoteList = store.quotes; renderLog();
     if (!result.created) {
       if (canPush && savedQuote) { try { await cloudPush(result.store, remoteStamp); } catch {} }
       savedNumber = number;
@@ -984,7 +974,7 @@ $('import-pdf-file').addEventListener('change', async () => {
     else {
       clearActiveQuote();
       activeQuote = { number: imported.number, document: { uid: imported.uid, date: imported.date } };
-      extraOrder = { depositPercent: imported.order.depositPercent, depositWholeDollars: imported.order.depositWholeDollars, bookingStart: imported.order.bookingStart, bookingEnd: imported.order.bookingEnd };
+      extraOrder = { pricingVersion: imported.order.pricingVersion, depositPercent: imported.order.depositPercent, depositWholeDollars: imported.order.depositWholeDollars, bookingStart: imported.order.bookingStart, bookingEnd: imported.order.bookingEnd };
       applyOrder(imported.order); persistForm(); updateSaveState();
       $('editing-label').textContent = `Imported ${imported.number}`;
       status('PDF details restored. Review them, then tap Save quote.', 'ok');

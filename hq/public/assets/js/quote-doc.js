@@ -7,7 +7,7 @@
 // renders with the brand mark and item photos.
 
 export const DEPOSIT_PERCENT = 20;
-export const FREE_COOLER_CENTS = 5000;
+export const FREE_COOLER_CENTS = 10000;
 export const VALID_DAYS = 7;
 export const QUOTE_PHONE = '469-654-4110';
 export const QUOTE_EMAIL = 'raysrentals1@gmail.com';
@@ -18,10 +18,10 @@ export const RATES = {
   tableSetAlt: 1800,
   tablecloth: 300,
   runner: 200,
-  table: 800,
-  chair: 200,
-  speaker: 3000,
-  cooler: 1200,
+  table: 900,
+  chair: 250,
+  speaker: 4000,
+  cooler: 1800,
   ice: 300,
 };
 
@@ -39,8 +39,11 @@ export const QUOTE_ASSETS = {
 // Saved rental catalog. Generated quotes use these names, photos, and default
 // rates. Staff can change the rate on a quote (the 6' table set is $20 here;
 // some earlier quotes used $18, kept as altRateCents). The cooler is free
-// when the other items total $50 or more; extra coolers use rateCents.
+// when eligible rentals total $100 or more; packages with coolers include the offer.
 export const CATALOG = [
+  { id: 'party60', name: 'Party for 60', detail: '10 Tables + 60 Chairs', rateCents: 20000, image: 'table', max: 10 },
+  { id: 'cookout60', name: 'Cookout for 60', detail: '10 Tables + 60 Chairs + 2 Coolers', rateCents: 22500, image: 'cooler', max: 10, includedCoolers: 2 },
+  { id: 'wholeparty', name: 'The Whole Party', detail: '10 Tables + 60 Chairs + 2 Coolers + JBL Speaker', rateCents: 25000, image: 'speaker', max: 10, includedCoolers: 2 },
   {
     id: 'table-set',
     name: "6' Table Set",
@@ -94,7 +97,7 @@ export const CATALOG = [
   {
     id: 'cooler',
     name: 'Cooler',
-    detail: 'Free on orders $50+',
+    detail: 'Free with $100+ in eligible rentals',
     rateCents: RATES.cooler,
     image: 'cooler',
     max: 20,
@@ -276,14 +279,14 @@ function lineRateCents(item, raw) {
   return Math.max(0, dollarsToCents(text));
 }
 
-function freeCoolerLine() {
+function freeCoolerLine(minimum) {
   return {
     id: 'cooler',
     image: 'cooler',
     name: 'Cooler',
     subs: [
       { text: '(FREE)', free: true },
-      { text: 'Included with orders $50+', free: false },
+      { text: `Included with $${minimum / 100}+ in eligible rentals`, free: false },
     ],
     qty: 1,
     qtyUnit: '',
@@ -294,14 +297,14 @@ function freeCoolerLine() {
 }
 
 // Inserts the free cooler (and any paid extras) and returns cents charged for coolers.
-function appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree) {
-  const wantFree = includeFree && qualifyingCents >= FREE_COOLER_CENTS;
+function appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree, minimum) {
+  const wantFree = includeFree && qualifyingCents >= minimum;
   let paidCoolers = coolers;
   let showPromo = false;
   if (wantFree) {
     showPromo = true;
     paidCoolers = Math.max(coolers, 1) - 1;
-    lines.push(freeCoolerLine());
+    lines.push(freeCoolerLine(minimum));
   }
   if (paidCoolers) {
     lines.push(catalogLine('cooler', 'Cooler', 'Holds ice + drinks', paidCoolers, coolerRate, '', 'cooler'));
@@ -312,6 +315,10 @@ function appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree)
 export function priceOrder(input = {}) {
   const lines = [];
   let qualifyingCents = 0;
+  let rentalCents = 0;
+  const legacyPricing = input.pricingVersion === 'legacy';
+  const freeCoolerMinimumCents = legacyPricing ? 5000 : FREE_COOLER_CENTS;
+  let packageIncludesCoolers = false;
   let showPromo = false;
   let coolerCents = 0;
   const includeFree = input.includeFreeCooler !== false;
@@ -331,7 +338,9 @@ export function priceOrder(input = {}) {
       }
       if (!q) continue;
       const rate = lineRateCents(item, row && row.rate);
-      qualifyingCents += q * rate;
+      rentalCents += q * rate;
+      if (legacyPricing || ['party60', 'cookout60', 'wholeparty', 'table-set', 'table', 'chair', 'speaker'].includes(item.id)) qualifyingCents += q * rate;
+      if (item.includedCoolers) packageIncludesCoolers = true;
       pending.push(catalogLine(item.image, item.name, item.detail, q, rate, item.qtyUnit, item.id));
     }
     // Cooler sits where the catalog lists it: after the speaker, before ice.
@@ -339,7 +348,7 @@ export function priceOrder(input = {}) {
     const head = coolerAt === -1 ? pending : pending.slice(0, coolerAt);
     const tail = coolerAt === -1 ? [] : pending.slice(coolerAt);
     lines.push(...head);
-    const cooler = appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree);
+    const cooler = appendCoolers(lines, coolers, coolerRate, qualifyingCents, includeFree && !packageIncludesCoolers, freeCoolerMinimumCents);
     showPromo = cooler.showPromo;
     coolerCents = cooler.coolerCents;
     lines.push(...tail);
@@ -352,12 +361,13 @@ export function priceOrder(input = {}) {
     if (chairs) lines.push(catalogLine('chair', 'Folding Chair', 'White resin', chairs, RATES.chair, '', 'chair'));
     if (speakers) lines.push(catalogLine('speaker', 'JBL PartyBox 110', '', speakers, RATES.speaker, '', 'speaker'));
     qualifyingCents = tables * RATES.table + chairs * RATES.chair + speakers * RATES.speaker;
-    const cooler = appendCoolers(lines, coolers, RATES.cooler, qualifyingCents, includeFree);
+    rentalCents = qualifyingCents;
+    const cooler = appendCoolers(lines, coolers, RATES.cooler, qualifyingCents, includeFree && !packageIncludesCoolers, freeCoolerMinimumCents);
     showPromo = cooler.showPromo;
     coolerCents = cooler.coolerCents;
   }
 
-  const subtotalCents = qualifyingCents + coolerCents;
+  const subtotalCents = rentalCents + coolerCents;
   const deliveryCents = Math.max(0, dollarsToCents(input.delivery));
   const setupCents = Math.max(0, dollarsToCents(input.setup));
   const discountCents = Math.min(
@@ -406,6 +416,8 @@ export function priceOrder(input = {}) {
     depositPercent,
     balanceCents,
     qualifyingCents,
+    freeCoolerMinimumCents,
+    packageIncludesCoolers,
   };
 }
 
@@ -716,6 +728,9 @@ export function renderQuoteDocument(priced, options = {}) {
 // A typed clock ("5:30 PM", "16:00") replaces the label's hour and keeps its day.
 
 const DESK_PER_UNIT = {
+  party60: { tables: 10, chairs: 60 },
+  cookout60: { tables: 10, chairs: 60, coolers: 2 },
+  wholeparty: { tables: 10, chairs: 60, coolers: 2, speakers: 1 },
   // Catalog detail is "1 Table + 6 Chairs".
   'table-set': { tables: 1, chairs: 6 },
   table: { tables: 1 },
@@ -830,6 +845,7 @@ export function quoteBookingDraft(priced, quoteNumber) {
   return {
     customer: order.customerName || '',
     phone: order.phone || '',
+    email: order.email || '',
     address: order.address || '',
     start: timing.start,
     end: timing.end,
@@ -866,7 +882,15 @@ export function migrateTrackerStore(st) {
   if (typeof st.nextQuoteId !== 'number' || !Number.isFinite(st.nextQuoteId) || st.nextQuoteId <= maxQid) {
     st.nextQuoteId = Math.max(1001, maxQid + 1);
   }
+  migrateInventoryPricing(st);
   return st;
+}
+
+export function migrateInventoryPricing(st) {
+  if (st.inventoryPricingVersion === '2026-10-26') return;
+  const rates = { tables: 9, chairs: 2.5, coolers: 18, speakers: 40 };
+  for (const item of st.inventory || []) if (Object.hasOwn(rates, item.id)) item.price = rates[item.id];
+  st.inventoryPricingVersion = '2026-10-26';
 }
 
 // Mutates store. created is false when this quote number is already a booking
@@ -878,7 +902,7 @@ export function appendQuoteBooking(store, draft) {
   if (!Array.isArray(S.bookings)) S.bookings = [];
   const number = draft && draft.quoteNumber;
   if (!number) return { store: S, booking: null, created: false };
-  const existing = S.bookings.find((b) => bookingMatchesQuote(b, number));
+  const existing = S.bookings.find((b) => draft.quoteUid && b.quoteUid ? draft.quoteUid === b.quoteUid : bookingMatchesQuote(b, number) && (!draft.start || !b.start || draft.start.slice(0, 10) === b.start.slice(0, 10)));
   if (existing) return { store: S, booking: existing, created: false };
   const inventory = Array.isArray(S.inventory) ? S.inventory : [];
   const items = {};
@@ -901,6 +925,9 @@ export function appendQuoteBooking(store, draft) {
     id: S.nextId++,
     customer: (draft && draft.customer) || '',
     phone: (draft && draft.phone) || '',
+    email: (draft && draft.email) || '',
+    quoteUid: draft.quoteUid || '',
+    deposit: Number(draft.deposit) || 0,
     address: (draft && draft.address) || '',
     start: (draft && draft.start) || '',
     end: (draft && draft.end) || '',

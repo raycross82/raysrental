@@ -499,10 +499,10 @@
 const KEY='raysRentalsTracker_v1';
 const seed={
   inventory:[
-    {id:'tables', name:'6-ft Folding Tables', qty:15, price:8},
-    {id:'chairs', name:'Folding Chairs', qty:90, price:2},
-    {id:'coolers', name:'Drink Coolers', qty:3, price:12},
-    {id:'speakers', name:'JBL PartyBox Speaker', qty:1, price:30}
+    {id:'tables', name:'6-ft Folding Tables', qty:15, price:9},
+    {id:'chairs', name:'Folding Chairs', qty:90, price:2.5},
+    {id:'coolers', name:'Drink Coolers', qty:3, price:18},
+    {id:'speakers', name:'JBL PartyBox Speaker', qty:1, price:40}
   ],
   bookings:[
     {id:1, customer:'Allie Voelkel', phone:'', address:'4571 Bonfire Dr', start:'2026-07-03T16:00', end:'2026-07-05T08:00',
@@ -524,7 +524,8 @@ if(S.settings.orderUrl==='https://raysrental.com/order.html') S.settings.orderUr
 /* ---------------- migration (additive only) ----------------
    Older saved stores have rev/leads/nextId/bookings/settings/inventory/nextLeadId
    but no subs list. Add the two missing keys and touch nothing else — bookings,
-   leads, inventory and settings are never rebuilt, reset or reordered here.
+   leads and settings are never rebuilt, reset or reordered here. The dated
+   price migration updates core inventory rates once, preserving quantities.
    rev is deliberately NOT bumped: rev is owned by save(), and bumping it on load
    would make a stale device look newer than the cloud and push over real data. */
 function migrateStore(st){
@@ -538,6 +539,11 @@ function migrateStore(st){
   if(!Array.isArray(st.quotes)) st.quotes=[];
   const maxQid=st.quotes.reduce((m,x)=>Math.max(m,(+x?.id||0)),0);
   if(typeof st.nextQuoteId!=='number' || !isFinite(st.nextQuoteId) || st.nextQuoteId<=maxQid) st.nextQuoteId=Math.max(1001, maxQid+1);
+  if(st.inventoryPricingVersion!=='2026-10-26'){
+    const rates={tables:9,chairs:2.5,coolers:18,speakers:40};
+    for(const item of st.inventory||[]) if(Object.hasOwn(rates,item.id)) item.price=rates[item.id];
+    st.inventoryPricingVersion='2026-10-26';
+  }
   return st;
 }
 migrateStore(S);
@@ -1602,7 +1608,8 @@ function applyRestore(mode){
    NOT read from S.inventory prices, which Ray is free to edit for his own
    internal costing without silently changing what a customer sees. */
 const QUOTE_ITEM_IDS=['tables','chairs','coolers','speakers'];
-const QUOTE_RATES={tables:8, chairs:2, coolers:12, speakers:30};
+const LEGACY_QUOTE_RATES={tables:8, chairs:2, coolers:12, speakers:30};
+const QUOTE_RATES={tables:9, chairs:2.5, coolers:18, speakers:40};
 const QUOTE_LABEL={tables:'tables', chairs:'chairs', coolers:'coolers', speakers:'speakers'};
 const QUOTE_STATUSES=['Draft','Sent','Signed','Lost'];
 const DEFAULT_DELIVERY=150;
@@ -1631,15 +1638,16 @@ function quoteTotals(q){
     const totals=q.document.totals;
     return {days:1,lines:[],...totals};
   }
-  const days=quoteDays(q&&q.start, q&&q.end);
+  const current=q?.pricingVersion==='2';
+  const days=current?1:quoteDays(q&&q.start, q&&q.end);
   const lines=QUOTE_ITEM_IDS.map(id=>{
-    const qty=quoteQty(q,id), rate=QUOTE_RATES[id];
+    const qty=quoteQty(q,id), rate=(current?QUOTE_RATES:LEGACY_QUOTE_RATES)[id];
     return {id, name:quoteItemName(id), qty, rate, line:qty*rate*days};
   });
   const subtotal=lines.reduce((t,l)=>t+l.line,0);
   const delivery=+(q&&q.delivery)||0, discount=+(q&&q.discount)||0;
   const total=subtotal+delivery-discount;
-  const deposit=Math.round(total*0.25);
+  const deposit=current?Math.round(total*25)/100:Math.round(total*0.25);
   return {days, lines, subtotal, delivery, discount, total, deposit, balance:total-deposit};
 }
 
@@ -1659,7 +1667,7 @@ function b64url(str){
 function quotePayload(q){
   const t=x=>String(x==null?'':x);
   return [
-    '1',                       /*  0 version literal */
+    q.pricingVersion==='2'?'2':'1', /* 0 pricing version */
     t(q.number),               /*  1 quote number    */
     t(q.customer),             /*  2 customer        */
     t(q.phone),                /*  3 phone           */
@@ -1749,7 +1757,7 @@ function quoteCard(q){
     acts.push(`<button class="q-act" type="button" onclick="markQuoteSent(${q.id})">&#128228; Mark Sent</button>`);
   if(q.status!=='Signed' && q.status!=='Converted')
     acts.push(`<button class="q-act" type="button" onclick="markQuoteSigned(${q.id})">&#9997; Mark Signed</button>`);
-  acts.push(q.status==='Signed'
+  acts.push(q.status!=='Converted' && (q.document?.version===1 || q.status==='Signed')
     ? `<button class="q-act go" type="button" onclick="convertQuote(${q.id})">&rarr; Convert to booking</button>`
     : `<button class="q-act" type="button" disabled title="${q.status==='Converted'?'Already converted to a booking.':'Mark this quote Signed first &mdash; only a signed agreement becomes a booking.'}">&rarr; Convert to booking</button>`);
   if(q.status==='Converted' && q.bookingId!=null)
@@ -1786,7 +1794,7 @@ function viewQuotes(){
       <span class="toolbar"><a class="btn accent" href="/quote/" style="text-decoration:none">Generate Quote</a><button class="btn accent" onclick="openQuote()">+ Agreement quote</button></span>
     </h2>
     ${quoteSumHtml(st)}
-    <div class="muted" style="margin:12px 0 14px;line-height:1.6">Generate a PDF to save an editable quote here automatically. Tap <b>Download PDF</b> to get it again, or <b>Open / edit PDF quote</b> to update it. Saving a quote does not create a booking. Agreement quotes keep their existing links and signing steps.</div>
+    <div class="muted" style="margin:12px 0 14px;line-height:1.6">Generate a PDF to save an editable quote here automatically. Tap <b>Download PDF</b> to get it again, or <b>Open / edit PDF quote</b> to update it. Tap <b>Convert to booking</b> when you are ready to book a saved PDF quote. Its total stays the same and the booking starts as <b>Deposit Due</b>. Agreement quotes require Mark Signed first.</div>
     ${list.length? list.map(quoteCard).join('') : '<div class="empty">No saved quotes yet. Tap <b>Generate Quote</b> to create your first PDF quote.</div>'}
   </div></div>`;
 }
@@ -1797,6 +1805,7 @@ function quoteFormData(){
   const items={};
   QUOTE_ITEM_IDS.forEach(id=>{ items[id]=Math.max(0, Math.round(+($('qi_'+id)?.value||0)||0)); });
   return {
+    pricingVersion:editingQuoteId?(quoteById(editingQuoteId)?.pricingVersion||'1'):'2',
     customer:$('q_customer').value.trim(), phone:$('q_phone').value.trim(),
     email:$('q_email').value.trim(), address:$('q_address').value.trim(),
     start:$('q_start').value, end:$('q_end').value, items,
@@ -1845,7 +1854,7 @@ function openQuote(id){
   $('q_discount').value = q.discount==null? 0 : q.discount;
   $('q_notes').value=q.notes||'';
   $('q_items').innerHTML=QUOTE_ITEM_IDS.map(k=>`
-    <div><label>${esc(quoteItemName(k))} &middot; ${fmt$(QUOTE_RATES[k])}/day</label>
+    <div><label>${esc(quoteItemName(k))} &middot; ${fmt$((id&&q.pricingVersion!=='2'?LEGACY_QUOTE_RATES:QUOTE_RATES)[k])}/day</label>
       <input type="number" min="0" step="1" id="qi_${k}" value="${quoteQty(q,k)}" oninput="quoteCalc()" onchange="quoteCalc()"></div>`).join('');
   $('q_delete').style.display=id?'':'none';
   $('q_linkBox').style.display=id?'':'none';
@@ -1870,7 +1879,7 @@ function saveQuote(){
     toast(q.number+' saved');
   } else {
     const id=S.nextQuoteId++;
-    const q={ id, number:'Q-'+id, customer:d.customer, phone:d.phone, email:d.email,
+    const q={ id, pricingVersion:d.pricingVersion, number:'Q-'+id, customer:d.customer, phone:d.phone, email:d.email,
       address:d.address, start:d.start, end:d.end, items:d.items,
       delivery:d.delivery, discount:d.discount, notes:d.notes,
       status:d.status||'Draft', created:new Date().toISOString(),
@@ -1920,21 +1929,24 @@ async function copyQuoteLinkFromForm(btn){
 }
 /* Converting writes a brand-new booking through the existing nextId counter and
    the existing booking shape. The quote stays on file, marked Converted. */
-function convertQuote(id){
+let convertingQuote=false;
+async function convertQuote(id){
+  if(convertingQuote) return;
+  mergeSavedQuotes();
   const q=quoteById(id); if(!q) return;
-  if(q.status!=='Signed'){ alert('Mark this quote Signed first — only a signed agreement becomes a booking.'); return; }
+  if(q.status==='Converted'){ if(q.bookingId!=null) openBooking(q.bookingId); return; }
+  if(!q.document && q.status!=='Signed'){ alert('Mark this agreement quote Signed first.'); return; }
   const t=quoteTotals(q);
-  if(!confirm('Create a booking for '+(q.customer||'this customer')+' at '+fmt$(t.total)+'?\n\n'+q.number+' stays on file, marked Converted.')) return;
-  const items={};
-  QUOTE_ITEM_IDS.forEach(k=>{ items[k]=quoteQty(q,k); });
-  const base=String(q.notes||'').trim();
-  const b={ id:S.nextId++, customer:q.customer, phone:q.phone||'', address:q.address||'',
-    start:q.start||'', end:q.end||'', items, price:t.total, paid:0,
-    status:'Deposit Due', quoteNumber:q.number, notes:(base? base+' — ':'')+'From '+q.number };
-  S.bookings.push(b);
-  q.status='Converted'; q.bookingId=b.id;
-  save(); render();
-  toast(q.number+' converted \u2014 booking created for '+(q.customer||''));
+  if(!confirm('Create a booking for '+(q.customer||'this customer')+' at $'+Number(t.total).toFixed(2)+'?\n\nThe booking starts as Deposit Due. '+q.number+' stays on file.')) return;
+  convertingQuote=true;
+  try {
+    const {convertSavedQuote}=await import('/assets/js/saved-quotes.js?v=20261101');
+    const result=convertSavedQuote(S,id);
+    save(); render();
+    toast(result.created?q.number+' converted — booking created':q.number+' already has a booking');
+    openBooking(result.booking.id);
+  } catch(err){ alert(err.message||'Could not convert this quote. Please try again.'); }
+  finally { convertingQuote=false; }
 }
 
 /* ---------------- booking modal logic ---------------- */

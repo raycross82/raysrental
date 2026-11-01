@@ -71,7 +71,7 @@ const tracker = readFileSync('hq/public/index.html', 'utf8');
 if (!page.includes('<meta name="robots" content="noindex,nofollow">')) fail('hq quote: missing noindex,nofollow');
 if (!page.includes('id="generate-quote"')) fail('hq quote: Generate Quote button is missing');
 if (!page.includes('>Save &amp; generate PDF<')) fail('hq quote: button is not labeled Generate Quote');
-if (!page.includes('src="/assets/js/admin-quote.js?v=7"')) fail('hq quote: page script is missing');
+if (!page.includes('src="/assets/js/admin-quote.js?v=20261101"')) fail('hq quote: page script is missing');
 if (!page.includes('id="save-booking"') || !page.includes('>Save as booking<')) fail('hq quote: Save as booking is missing');
 if (!page.includes('id="email-quote"') || !page.includes('>Email<')) fail('hq quote: Email is missing');
 if (!page.includes('id="text-quote"') || !page.includes('>Text customer<')) fail('hq quote: Text is missing');
@@ -115,13 +115,13 @@ for (const rel of [
 
 const priced = priceOrder(SAMPLE_ORDER);
 const expectCents = {
-  subtotalCents: 11200,
+  subtotalCents: 13850,
   deliveryCents: 2000,
   setupCents: 2500,
   discountCents: 0,
-  totalCents: 15700,
-  depositCents: 3140,
-  balanceCents: 12560,
+  totalCents: 18350,
+  depositCents: 3670,
+  balanceCents: 14680,
 };
 for (const [key, want] of Object.entries(expectCents)) {
   if (priced[key] !== want) fail(`Sample ${key} is ${priced[key]}, expected ${want}`);
@@ -153,20 +153,20 @@ for (const needle of [
   'Delivery &amp; Setup',
   'Folding Table',
   '6 ft rectangular',
-  '$32.00',
+  '$36.00',
   'Folding Chair',
-  '$50.00',
+  '$62.50',
   'JBL PartyBox 110',
-  '$30.00',
+  '$40.00',
   'FREE',
-  'Included with orders $50+',
+  'Included with $100+ in eligible rentals',
   '1 FREE COOLER INCLUDED!',
   'Setup / Teardown',
   '$25.00',
-  '$157.00',
+  '$183.50',
   '20% Deposit to Reserve',
-  '$31.40',
-  '$125.60',
+  '$36.70',
+  '$146.80',
   'RR-0917-01',
   'September 17, 2026',
   'September 24, 2026',
@@ -200,7 +200,7 @@ if (payHtml.includes('Pay deposit with Square')) fail('Square CTA still uses the
 if (!payHtml.includes('target="_blank"') || !payHtml.includes('rel="noopener noreferrer"')) {
   fail('Square CTA must open in a new tab with noopener');
 }
-if (!payHtml.includes('Opens Square to pay the 20% deposit of $31.40.')) {
+if (!payHtml.includes('Opens Square to pay the 20% deposit of $36.70.')) {
   fail('Square CTA note should mention the deposit amount');
 }
 
@@ -228,25 +228,25 @@ if (hostileHtml.includes('<img src=x')) fail('customer name was not escaped');
 if (!hostileHtml.includes('&lt;img src=x onerror=alert(1)&gt;')) fail('customer name escape changed shape');
 
 const small = priceOrder({ tables: 2, coolers: 1, delivery: 0, setup: 0 });
-if (small.showPromo) fail('a $16 order must not include a free cooler');
-if (small.subtotalCents !== 2800) fail(`paid cooler subtotal is ${small.subtotalCents}, expected 2800`);
+if (small.showPromo) fail('an $18 table order must not include a free cooler');
+if (small.subtotalCents !== 3600) fail(`paid cooler subtotal is ${small.subtotalCents}, expected 3600`);
 const smallHtml = renderQuoteDocument(small, { quoteNumber: 'RR-0102-01', quoteDate: '2026-01-02' });
-if (smallHtml.includes('1 FREE COOLER INCLUDED!')) fail('under-$50 quote still shows the free-cooler promo');
+if (smallHtml.includes('1 FREE COOLER INCLUDED!')) fail('under-$100 quote still shows the free-cooler promo');
 
-const edge = priceOrder({ chairs: 25 });
-if (!edge.showPromo || edge.subtotalCents !== 5000) fail('a $50 item subtotal should include one free cooler and stay $50');
-const optedOut = priceOrder({ chairs: 25, coolers: 1, includeFreeCooler: false });
-if (optedOut.showPromo || optedOut.subtotalCents !== 6200) fail('opting out of the free cooler should charge $12');
+const edge = priceOrder({ chairs: 40 });
+if (!edge.showPromo || edge.subtotalCents !== 10000) fail('a $100 item subtotal should include one free cooler and stay $100');
+const optedOut = priceOrder({ chairs: 40, coolers: 1, includeFreeCooler: false });
+if (optedOut.showPromo || optedOut.subtotalCents !== 11800) fail('opting out of the free cooler should charge $18');
 
 const catalog = Object.fromEntries(CATALOG.map((item) => [item.id, item]));
 const expectCatalog = {
   'table-set': { name: "6' Table Set", rateCents: 2000, altRateCents: 1800, image: 'table', qtyUnit: 'Sets' },
   tablecloth: { name: 'White Table Cloths', rateCents: 300, image: 'tablecloth' },
   runner: { name: 'Table Runners', rateCents: 200, image: 'runner' },
-  table: { name: 'Folding Table', rateCents: 800, image: 'table' },
-  chair: { name: 'Folding Chair', rateCents: 200, image: 'chair' },
-  speaker: { name: 'JBL PartyBox 110', rateCents: 3000, image: 'speaker' },
-  cooler: { name: 'Cooler', rateCents: 1200, image: 'cooler' },
+  table: { name: 'Folding Table', rateCents: 900, image: 'table' },
+  chair: { name: 'Folding Chair', rateCents: 250, image: 'chair' },
+  speaker: { name: 'JBL PartyBox 110', rateCents: 4000, image: 'speaker' },
+  cooler: { name: 'Cooler', rateCents: 1800, image: 'cooler' },
   ice: { name: 'Bags of Ice', rateCents: 300, image: 'ice' },
 };
 for (const [id, want] of Object.entries(expectCatalog)) {
@@ -318,7 +318,7 @@ if (clothHtml.includes('DELIVERY &amp; PICKUP</div><div class="price">$0.00')) {
 }
 
 const discounted = priceOrder({ ...SAMPLE_ORDER, discount: 10 });
-if (discounted.totalCents !== 14700 || discounted.depositCents !== 2940) {
+if (discounted.totalCents !== 17350 || discounted.depositCents !== 3470) {
   fail(`discounted total ${discounted.totalCents} deposit ${discounted.depositCents}`);
 }
 
@@ -334,7 +334,7 @@ if (!threw) fail('sequence 99 should refuse another number');
 if (addDays('2026-09-17', 7) !== '2026-09-24') fail('valid-until is not 7 days');
 if (chicagoDateParts(new Date('2026-09-22T03:30:00Z')).key !== '2026-09-21') fail('Chicago date before midnight');
 if (chicagoDateParts(new Date('2026-09-22T05:30:00Z')).key !== '2026-09-22') fail('Chicago date after midnight');
-if (formatMoney(3140) !== '$31.40' || formatMoney(-500) !== '-$5.00') fail('money format');
+if (formatMoney(3670) !== '$36.70' || formatMoney(-500) !== '-$5.00') fail('money format');
 
 const mem = new Map();
 const blob = {
@@ -366,7 +366,7 @@ if (!quoteJs.includes('quoteSmsHref') || !quoteJs.includes('quoteMailtoHref')) f
 if (quoteJs.includes('twilio') || quoteJs.includes('gmail.googleapis')) fail('quote send must stay on the device');
 
 const latoya = quoteBookingDraft(priced, 'RR-0917-01');
-if (latoya.status !== 'Deposit Due' || latoya.paid !== 0 || latoya.price !== 157) {
+if (latoya.status !== 'Deposit Due' || latoya.paid !== 0 || latoya.price !== 183.5) {
   fail(`Sample booking is ${latoya.status} paid ${latoya.paid} price ${latoya.price}`);
 }
 if (latoya.items.tables !== 4 || latoya.items.chairs !== 25 || latoya.items.speakers !== 1 || latoya.items.coolers !== 1) {
@@ -416,7 +416,7 @@ const mixed = quoteBookingDraft(priceOrder({
     { id: 'speaker', qty: 1 },
   ],
 }), 'RR-1002-04');
-if (mixed.items.tables !== 3 || mixed.items.chairs !== 15 || mixed.items.speakers !== 1 || mixed.items.coolers !== 1) {
+if (mixed.items.tables !== 3 || mixed.items.chairs !== 15 || mixed.items.speakers !== 1 || mixed.items.coolers !== 0) {
   fail(`mixed desk counts ${JSON.stringify(mixed.items)}`);
 }
 if (!mixed.notes.includes('4 White Table Cloths') || !mixed.notes.includes('2 Table Runners') || !mixed.notes.includes('5 Bags of Ice')) {
@@ -464,7 +464,7 @@ if (bookingMatchesQuote({ notes: 'From RR-0917-01' }, 'RR-0917-012')) fail('quot
 
 const sharePriced = priceOrder({ ...SAMPLE_ORDER, email: 'sample@example.com' });
 const summary = quoteShareSummary(sharePriced, 'RR-0917-01');
-for (const bit of ['Hi Sample', 'RR-0917-01', '$157.00', '$31.40', '(20%)', 'September 19, 2026']) {
+for (const bit of ['Hi Sample', 'RR-0917-01', '$183.50', '$36.70', '(20%)', 'September 19, 2026']) {
   if (!summary.includes(bit)) fail(`share text missing "${bit}"`);
 }
 if (/agreement|https?:\/\//i.test(summary)) fail('share text invented an agreement link');
@@ -484,4 +484,4 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log('assert-generate-quote: ok, public publish has no Generate Quote, HQ /quote/ prices Sample to $157.00 with a $31.40 deposit, Pay deposit here stays off unless a Square URL is pasted');
+console.log('assert-generate-quote: ok, public publish has no Generate Quote, HQ /quote/ prices Sample to $183.50 with a $36.70 deposit, Pay deposit here stays off unless a Square URL is pasted');

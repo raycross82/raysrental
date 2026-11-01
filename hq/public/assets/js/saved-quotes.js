@@ -1,5 +1,5 @@
 // One editable record shared by the PDF desk and the HQ Quotes list.
-import { CATALOG, priceOrder, quoteBookingDraft, migrateTrackerStore, chicagoDateParts } from './quote-doc.js';
+import { CATALOG, priceOrder, quoteBookingDraft, migrateTrackerStore, chicagoDateParts, appendQuoteBooking } from './quote-doc.js?v=20261101';
 
 export function newQuoteUid() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -9,7 +9,7 @@ const text = value => String(value ?? '').slice(0, 4000);
 const money = value => Math.max(0, Math.min(1000000, Number(value) || 0));
 
 export function normalizeOrder(input = {}) {
-  const result = {};
+  const result = { pricingVersion: input.pricingVersion === 'legacy' ? 'legacy' : '2026-10-26' };
   for (const key of ['customerName', 'phone', 'email', 'address', 'rentalDate', 'dropoff', 'pickup', 'serviceType', 'squarePaymentUrl', 'bookingStart', 'bookingEnd']) result[key] = text(input[key]);
   result.items = CATALOG.map(item => {
     const row = (Array.isArray(input.items) ? input.items : []).find(row => row?.id === item.id);
@@ -24,20 +24,20 @@ export function normalizeOrder(input = {}) {
 }
 
 export function orderForQuote(quote) {
-  if (quote.document?.version === 1) return normalizeOrder(quote.document.order);
+  if (quote.document?.version === 1) return normalizeOrder({ ...quote.document.order, pricingVersion: quote.document.order.pricingVersion || 'legacy' });
   // The old HQ editor charges per inclusive rental day. Freeze its rates and
   // deposit rule, including its historical whole-dollar deposit rounding.
   const start = String(quote.start || ''), end = String(quote.end || '');
   const delta = (Date.parse(end.slice(0, 10)) - Date.parse(start.slice(0, 10))) / 864e5;
-  const days = Number.isFinite(delta) ? Math.max(1, Math.round(delta) + 1) : 1;
+  const days = quote.pricingVersion === '2' ? 1 : Number.isFinite(delta) ? Math.max(1, Math.round(delta) + 1) : 1;
   const mapping = { table: ['tables', 8], chair: ['chairs', 2], cooler: ['coolers', 12], speaker: ['speakers', 30] };
   return normalizeOrder({
     customerName: quote.customer, phone: quote.phone, email: quote.email, address: quote.address,
     rentalDate: start.slice(0, 10), dropoff: start.replace('T', ' '), pickup: end.replace('T', ' '),
     bookingStart: start, bookingEnd: end,
-    items: Object.entries(mapping).map(([id, [key, rate]]) => ({ id, qty: quote.items?.[key] || 0, rate: rate * days })),
+    items: Object.entries(mapping).map(([id, [key, rate]]) => ({ id, qty: quote.items?.[key] || 0, rate: (quote.pricingVersion === '2' ? {tables:9,chairs:2.5,coolers:18,speakers:40}[key] : rate) * days })),
     delivery: quote.delivery, discount: quote.discount, setup: 0,
-    includeFreeCooler: false, depositPercent: 25, depositWholeDollars: true,
+    includeFreeCooler: false, depositPercent: 25, depositWholeDollars: quote.pricingVersion !== '2',
   });
 }
 
@@ -91,5 +91,30 @@ export function decodeQuotePdf(bytes) {
   try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(atob(encoded), c => c.charCodeAt(0)))); }
   catch { throw new Error('The editable details in this PDF could not be read.'); }
   if (value?.type !== 'rays-rentals-quote' || value.version !== 1 || !/^[A-Za-z0-9-]{1,80}$/.test(value.number) || !/^\d{4}-\d{2}-\d{2}$/.test(value.date) || !value.uid || !value.order || typeof value.order !== 'object') throw new Error('This PDF has invalid quote details.');
-  return { uid: text(value.uid), number: value.number, date: value.date, order: normalizeOrder(value.order) };
+  return { uid: text(value.uid), number: value.number, date: value.date, order: normalizeOrder({ ...value.order, pricingVersion: value.order.pricingVersion || 'legacy' }) };
+}
+
+// Both entry points use the same saved identity and frozen quote figures.
+export function convertSavedQuote(store, id, now = new Date().toISOString()) {
+  migrateTrackerStore(store);
+  const quote = store.quotes.find(q => q.id === id);
+  if (!quote) throw new Error('This quote is no longer available. Reopen Saved quotes.');
+  const linked = store.bookings?.find(b => b.id === quote.bookingId);
+  if (linked) return { store, booking: linked, created: false };
+  if (quote.status === 'Converted') throw new Error('The linked booking was removed. Review this quote before creating another booking.');
+  if (!quote.document && quote.status !== 'Signed') throw new Error('Mark this agreement quote Signed first.');
+  const order = orderForQuote(quote);
+  const priced = priceOrder(order);
+  const draft = quoteBookingDraft(priced, quote.number);
+  draft.quoteUid = quote.document?.uid || '';
+  draft.start = quote.start || draft.start;
+  draft.end = quote.end || draft.end;
+  draft.items = { ...draft.items, ...quote.items };
+  draft.price = quote.document?.totals?.total ?? draft.price;
+  draft.deposit = quote.document?.totals?.deposit ?? priced.depositCents / 100;
+  if (quote.notes && quote.notes !== draft.notes) draft.notes += ' ' + quote.notes;
+  const result = appendQuoteBooking(store, draft);
+  quote.status = 'Converted'; quote.bookingId = result.booking.id; quote.updatedAt = now;
+  if (!result.created) store.rev = (Number(store.rev) || 0) + 1;
+  return result;
 }
