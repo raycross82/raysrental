@@ -365,7 +365,10 @@ export function priceOrder(input = {}) {
     Math.max(0, dollarsToCents(input.discount)),
   );
   const totalCents = subtotalCents + deliveryCents + setupCents - discountCents;
-  const depositCents = Math.round(totalCents * DEPOSIT_PERCENT / 100);
+  const depositPercent = input.depositPercent === 25 ? 25 : DEPOSIT_PERCENT;
+  const depositCents = input.depositWholeDollars === true
+    ? Math.round(totalCents / 100 * depositPercent / 100) * 100
+    : Math.round(totalCents * depositPercent / 100);
   const balanceCents = totalCents - depositCents;
   const serviceType = cleanText(input.serviceType) || 'Delivery & Setup';
   const deliveryIncluded = serviceType === 'Free Delivery & Pickup' && deliveryCents === 0;
@@ -400,6 +403,7 @@ export function priceOrder(input = {}) {
     discountCents,
     totalCents,
     depositCents,
+    depositPercent,
     balanceCents,
     qualifyingCents,
   };
@@ -590,7 +594,7 @@ export function renderQuoteDocument(priced, options = {}) {
     ? `<div class="promo-box"><img src="${esc(assets.cooler)}" alt=""><div class="promo-text">1 FREE COOLER INCLUDED!</div></div>`
     : '';
   const payCta = priced.paymentUrl
-    ? `<a class="pay-cta" href="${esc(priced.paymentUrl)}" target="_blank" rel="noopener noreferrer">Pay deposit here</a><div class="pay-cta-note">Opens Square to pay the ${DEPOSIT_PERCENT}% deposit of ${esc(formatMoney(priced.depositCents))}.</div>`
+    ? `<a class="pay-cta" href="${esc(priced.paymentUrl)}" target="_blank" rel="noopener noreferrer">Pay deposit here</a><div class="pay-cta-note">Opens Square to pay the ${priced.depositPercent || DEPOSIT_PERCENT}% deposit of ${esc(formatMoney(priced.depositCents))}.</div>`
     : '';
 
   return `<!DOCTYPE html>
@@ -672,7 +676,7 @@ export function renderQuoteDocument(priced, options = {}) {
         <div class="star-top">${star()}</div>
         <div class="thank-title">THANK YOU!</div>
         <div class="thank-sub">We appreciate your business!</div>
-        <div class="thank-body">A 20% deposit secures your rental items and event date. Availability is first-come, first-served.</div>
+        <div class="thank-body">A ${priced.depositPercent || DEPOSIT_PERCENT}% deposit secures your rental items and event date. Availability is first-come, first-served.</div>
       </div>
       ${promo}
     </div>
@@ -682,7 +686,7 @@ export function renderQuoteDocument(priced, options = {}) {
         ${rows}
         <div class="sum-divider"></div>
         <div class="sum-total"><span class="lbl">TOTAL</span><span class="val">${esc(formatMoney(priced.totalCents))}</span></div>
-        <div class="deposit-box"><span class="lbl">${DEPOSIT_PERCENT}% Deposit to Reserve</span><span class="val">${esc(formatMoney(priced.depositCents))}</span></div>
+        <div class="deposit-box"><span class="lbl">${priced.depositPercent || DEPOSIT_PERCENT}% Deposit to Reserve</span><span class="val">${esc(formatMoney(priced.depositCents))}</span></div>
         ${payCta}
         <div class="balance-row"><span>Remaining Balance</span><span>${esc(formatMoney(priced.balanceCents))}</span></div>
       </div>
@@ -916,7 +920,7 @@ export function quoteShareSummary(priced, quoteNumber) {
   const order = priced || {};
   const first = String(order.customerName || '').trim().split(/\s+/)[0] || 'there';
   const when = isIsoDate(order.rentalDate) ? formatLongDate(order.rentalDate) : 'the date on the quote';
-  return `Hi ${first}, here's your Ray's Rentals quote ${quoteNumber}: total ${formatMoney(order.totalCents)}, deposit ${formatMoney(order.depositCents)} (20%), rental date ${when}.`;
+  return `Hi ${first}, here's your Ray's Rentals quote ${quoteNumber}: total ${formatMoney(order.totalCents)}, deposit ${formatMoney(order.depositCents)} (${order.depositPercent || DEPOSIT_PERCENT}%), rental date ${when}.`;
 }
 
 export function quoteEmailDraft(priced, quoteNumber) {
