@@ -4,7 +4,7 @@
 // rays-rentals-hq Netlify site). The public marketing build (out/) must not
 // contain the staff page, its script, its artwork, or the quote-number function.
 //
-// The LaToya sample (4 tables, 25 chairs, 1 speaker, free cooler, $20 delivery,
+// The Sample sample (4 tables, 25 chairs, 1 speaker, free cooler, $20 delivery,
 // $25 setup) is priced by the same module the HQ page uses and checked to the
 // cent. Quote numbers are RR-MMDD-## inside one Chicago calendar day.
 
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 chdir(join(dirname(fileURLToPath(import.meta.url)), '..'));
 import {
   CATALOG,
-  SAMPLE_ORDER,
+  SAMPLE_ORDER as BASE_SAMPLE_ORDER,
   addDays,
   allocateSeq,
   appendQuoteBooking,
@@ -37,6 +37,7 @@ import {
 } from '../hq/public/assets/js/quote-doc.js';
 import { assignQuoteNumber } from '../hq/netlify/functions/quote-number.mjs';
 
+const SAMPLE_ORDER = { ...BASE_SAMPLE_ORDER, customerName: 'Sample Customer', phone: '(214) 555-0100', address: '123 Example Street', email: '' };
 const problems = [];
 const fail = (msg) => problems.push(msg);
 
@@ -70,10 +71,10 @@ const tracker = readFileSync('hq/public/index.html', 'utf8');
 if (!page.includes('<meta name="robots" content="noindex,nofollow">')) fail('hq quote: missing noindex,nofollow');
 if (!page.includes('id="generate-quote"')) fail('hq quote: Generate Quote button is missing');
 if (!page.includes('>Save &amp; generate PDF<')) fail('hq quote: button is not labeled Generate Quote');
-if (!page.includes('src="/assets/js/admin-quote.js?v=6"')) fail('hq quote: page script is missing');
+if (!page.includes('src="/assets/js/admin-quote.js?v=7"')) fail('hq quote: page script is missing');
 if (!page.includes('id="save-booking"') || !page.includes('>Save as booking<')) fail('hq quote: Save as booking is missing');
 if (!page.includes('id="email-quote"') || !page.includes('>Email<')) fail('hq quote: Email is missing');
-if (!page.includes('id="text-quote"') || !page.includes('>Text<')) fail('hq quote: Text is missing');
+if (!page.includes('id="text-quote"') || !page.includes('>Text customer<')) fail('hq quote: Text is missing');
 if (!page.includes('id="open-hq"') || !page.includes('id="share-hint"')) fail('hq quote: Open HQ link is missing');
 for (const id of ['save-booking', 'email-quote', 'text-quote']) {
   const tag = page.match(new RegExp(`<button[^>]*id="${id}"[^>]*>`));
@@ -123,12 +124,12 @@ const expectCents = {
   balanceCents: 12560,
 };
 for (const [key, want] of Object.entries(expectCents)) {
-  if (priced[key] !== want) fail(`LaToya ${key} is ${priced[key]}, expected ${want}`);
+  if (priced[key] !== want) fail(`Sample ${key} is ${priced[key]}, expected ${want}`);
 }
-if (!priced.showPromo) fail('LaToya order should include the free cooler');
-if (priced.paymentUrl) fail('LaToya sample must not include a Square payment link by default');
+if (!priced.showPromo) fail('Sample order should include the free cooler');
+if (priced.paymentUrl) fail('Sample sample must not include a Square payment link by default');
 if (priced.lines.filter((line) => line.name === 'Cooler' && line.free).length !== 1) {
-  fail('LaToya order should have exactly one free cooler line');
+  fail('Sample order should have exactly one free cooler line');
 }
 
 const html = renderQuoteDocument(priced, {
@@ -143,9 +144,9 @@ const html = renderQuoteDocument(priced, {
   },
 });
 for (const needle of [
-  'LaToya Tucker',
-  '(601) 506-1088',
-  '1716 La Caya Drive, Mansfield, TX',
+  'Sample Customer',
+  '(214) 555-0100',
+  '123 Example Street',
   'September 19, 2026',
   'Evening before the event',
   'Morning after the event',
@@ -366,20 +367,20 @@ if (quoteJs.includes('twilio') || quoteJs.includes('gmail.googleapis')) fail('qu
 
 const latoya = quoteBookingDraft(priced, 'RR-0917-01');
 if (latoya.status !== 'Deposit Due' || latoya.paid !== 0 || latoya.price !== 157) {
-  fail(`LaToya booking is ${latoya.status} paid ${latoya.paid} price ${latoya.price}`);
+  fail(`Sample booking is ${latoya.status} paid ${latoya.paid} price ${latoya.price}`);
 }
 if (latoya.items.tables !== 4 || latoya.items.chairs !== 25 || latoya.items.speakers !== 1 || latoya.items.coolers !== 1) {
-  fail(`LaToya desk counts ${JSON.stringify(latoya.items)}`);
+  fail(`Sample desk counts ${JSON.stringify(latoya.items)}`);
 }
 if (latoya.start !== '2026-09-18T16:00' || latoya.end !== '2026-09-20T08:00') {
-  fail(`LaToya window ${latoya.start} → ${latoya.end}`);
+  fail(`Sample window ${latoya.start} → ${latoya.end}`);
 }
-if (!latoya.notes.startsWith('From RR-0917-01.')) fail(`LaToya notes missing quote number: ${latoya.notes}`);
+if (!latoya.notes.startsWith('From RR-0917-01.')) fail(`Sample notes missing quote number: ${latoya.notes}`);
 if (!latoya.notes.includes('Drop-off: Evening before the event.') || !latoya.notes.includes('Pick-up: Morning after the event.')) {
-  fail(`LaToya notes missing timing: ${latoya.notes}`);
+  fail(`Sample notes missing timing: ${latoya.notes}`);
 }
-if (latoya.notes.includes('Also on quote')) fail('mapped LaToya lines should not be repeated in notes');
-if (latoya.customer !== 'LaToya Tucker' || latoya.phone !== '(601) 506-1088') fail('LaToya booking dropped the customer');
+if (latoya.notes.includes('Also on quote')) fail('mapped Sample lines should not be repeated in notes');
+if (latoya.customer !== 'Sample Customer' || latoya.phone !== '(214) 555-0100') fail('Sample booking dropped the customer');
 
 const morning = bookingWindow('2026-10-02', 'Morning of the event', 'Same night after the event');
 if (morning.start !== '2026-10-02T09:00' || morning.end !== '2026-10-02T21:00') {
@@ -398,10 +399,10 @@ if (bookingWindow('', 'Evening before the event', 'Morning after the event').sta
 }
 
 const mixed = quoteBookingDraft(priceOrder({
-  customerName: 'Mina Cole',
+  customerName: 'Test Customer',
   phone: '469-555-0100',
   email: 'mina@example.com',
-  address: '10 Oak St',
+  address: '456 Example Street',
   rentalDate: '2026-10-02',
   dropoff: 'Morning of the event',
   pickup: 'Same night after the event',
@@ -453,7 +454,7 @@ if (secondSave.created || secondSave.booking.id !== 4 || secondSave.store.rev !=
   fail('saving the same quote number created a second booking');
 }
 const byNote = appendQuoteBooking({
-  bookings: [{ id: 9, notes: 'Call first. From RR-0917-01.', customer: 'LaToya Tucker' }],
+  bookings: [{ id: 9, notes: 'Call first. From RR-0917-01.', customer: 'Sample Customer' }],
   nextId: 10,
   rev: 1,
 }, latoya);
@@ -461,9 +462,9 @@ if (byNote.created || byNote.booking.id !== 9) fail('a From RR- note should coun
 if (!bookingMatchesQuote({ quoteNumber: 'RR-0917-01' }, 'RR-0917-01')) fail('quoteNumber match failed');
 if (bookingMatchesQuote({ notes: 'From RR-0917-01' }, 'RR-0917-012')) fail('quote number match was not exact');
 
-const sharePriced = priceOrder({ ...SAMPLE_ORDER, email: 'latoya@example.com' });
+const sharePriced = priceOrder({ ...SAMPLE_ORDER, email: 'sample@example.com' });
 const summary = quoteShareSummary(sharePriced, 'RR-0917-01');
-for (const bit of ['Hi LaToya', 'RR-0917-01', '$157.00', '$31.40', '(20%)', 'September 19, 2026']) {
+for (const bit of ['Hi Sample', 'RR-0917-01', '$157.00', '$31.40', '(20%)', 'September 19, 2026']) {
   if (!summary.includes(bit)) fail(`share text missing "${bit}"`);
 }
 if (/agreement|https?:\/\//i.test(summary)) fail('share text invented an agreement link');
@@ -472,10 +473,10 @@ if (emailed.subject !== "Ray's Rentals quote RR-0917-01") fail(`email subject ${
 if (!emailed.body.includes('Downloads') || !emailed.body.includes('Rays-Rentals-Quote-RR-0917-01.pdf')) {
   fail('email body should tell staff to attach the downloaded PDF');
 }
-const sms = quoteSmsHref('(601) 506-1088', summary);
-if (!sms.startsWith('sms:6015061088?&body=') || !sms.includes('%27')) fail(`sms href ${sms.slice(0, 80)}`);
-const mailto = quoteMailtoHref('latoya@example.com', emailed.subject, emailed.body);
-if (!mailto.startsWith('mailto:latoya@example.com?subject=') || !mailto.includes('body=')) fail('mailto href is wrong');
+const sms = quoteSmsHref('(214) 555-0100', summary);
+if (!sms.startsWith('sms:2145550100?&body=') || !sms.includes('%27')) fail(`sms href ${sms.slice(0, 80)}`);
+const mailto = quoteMailtoHref('sample@example.com', emailed.subject, emailed.body);
+if (!mailto.startsWith('mailto:sample@example.com?subject=') || !mailto.includes('body=')) fail('mailto href is wrong');
 
 if (problems.length) {
   console.error('assert-generate-quote: Generate Quote is inconsistent:');
@@ -483,4 +484,4 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log('assert-generate-quote: ok, public publish has no Generate Quote, HQ /quote/ prices LaToya to $157.00 with a $31.40 deposit, Pay deposit here stays off unless a Square URL is pasted');
+console.log('assert-generate-quote: ok, public publish has no Generate Quote, HQ /quote/ prices Sample to $157.00 with a $31.40 deposit, Pay deposit here stays off unless a Square URL is pasted');

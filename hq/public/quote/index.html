@@ -210,7 +210,7 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
           <div class="gq-share" aria-label="Save or send this quote">
             <button type="button" class="btn btn-outline" id="save-booking" disabled>Save as booking</button>
             <button type="button" class="btn btn-outline" id="email-quote" disabled>Email</button>
-            <button type="button" class="btn btn-outline" id="text-quote" disabled>Text</button>
+            <button type="button" class="btn btn-outline" id="text-quote" disabled>Text customer</button>
             <a class="btn btn-outline" id="open-hq" href="/">Open HQ</a>
           </div>
           <p class="legend-sub" id="share-hint">Saving a quote keeps it in Quotes. Create a booking separately when the customer is ready.</p>
@@ -237,8 +237,29 @@ input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radi
     </div>
   </div>
 </main>
+<dialog id="text-dialog" style="border:0;border-radius:16px;padding:24px;width:min(540px,calc(100% - 28px));max-height:90dvh;overflow:auto;box-sizing:border-box" aria-labelledby="text-title">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 id="text-title">Text customer</h2><button type="button" class="btn btn-outline" id="close-text">Close</button></div>
+  <p>Your quote PDF and payment PDF go together. Nothing sends until you tap Send in Messages.</p>
+  <label for="text-recipient">Customer number</label>
+  <input id="text-recipient" readonly style="width:100%;box-sizing:border-box" aria-label="Customer number">
+  <button type="button" class="gq-text" id="copy-customer-phone">Copy number</button>
+  <label for="text-message" style="display:block;margin-top:16px">Message — edit if needed</label>
+  <textarea id="text-message" rows="7" style="width:100%;box-sizing:border-box;font:inherit;padding:12px;border:1px solid #ccd4df;border-radius:8px"></textarea>
+  <button type="button" class="gq-text" id="copy-customer-message">Copy message</button>
+  <p id="text-feedback" role="status" style="line-height:1.5"></p>
+  <button type="button" class="btn btn-primary" id="share-pdfs" disabled>Share message + both PDFs</button>
+  <p class="legend-sub">Choose Messages and select the customer. Your phone may not include the text with files; use Copy message if needed.</p>
+  <details><summary>Other ways to send</summary>
+    <p>Download both PDFs, open the addressed text, and attach the files before sending.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <a class="btn btn-outline" id="text-quote-file" hidden target="_blank">Quote PDF</a>
+      <a class="btn btn-outline" href="/assets/docs/Rays-Rentals-Deposit-Payment-Information.pdf" download target="_blank">Payment PDF</a>
+      <button type="button" class="btn btn-outline" id="open-customer-text">Open text only</button>
+    </div>
+  </details>
+</dialog>
 <script src="/assets/js/vendor/html2canvas.min.js"></script>
 <script src="/assets/js/vendor/jspdf.umd.min.js"></script>
-<script type="module" src="/assets/js/admin-quote.js?v=6"></script>
+<script type="module" src="/assets/js/admin-quote.js?v=7"></script>
 </body>
 </html>

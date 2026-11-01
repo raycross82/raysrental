@@ -44,11 +44,7 @@ const TRACKER_SEED = {
     { id: 'coolers', name: 'Drink Coolers', qty: 3, price: 12 },
     { id: 'speakers', name: 'JBL PartyBox Speaker', qty: 1, price: 30 },
   ],
-  bookings: [
-    { id: 1, customer: 'Allie Voelkel', phone: '', address: '4571 Bonfire Dr', start: '2026-07-03T16:00', end: '2026-07-05T08:00', items: { tables: 10, chairs: 60, coolers: 2, speakers: 0 }, price: 195, paid: 195, status: 'Completed', notes: 'Drop off 4pm, pick up 8am' },
-    { id: 2, customer: 'Emily Tully', phone: '', address: '431 Mayrant Dr', start: '2026-07-04T00:00', end: '2026-07-05T09:30', items: { tables: 5, chairs: 24, coolers: 0, speakers: 0 }, price: 90, paid: 90, status: 'Completed', notes: 'Drop off Friday night, pick up 9:30am' },
-    { id: 3, customer: 'Lleana Salamanca', phone: '', address: '1326 Greenfield Dr', start: '2026-07-05T08:30', end: '2026-07-06T17:00', items: { tables: 5, chairs: 30, coolers: 0, speakers: 0 }, price: 115, paid: 115, status: 'Completed', notes: 'Drop off 8:30am, pick up 5–7pm' },
-  ],
+  bookings: [],
   leads: [],
   nextId: 4,
   nextLeadId: 1,
@@ -73,8 +69,12 @@ let dirty = false;
 let savedFingerprint = '';
 let quoteList = [];
 let pdfUrl = '';
+let quotePdfFile = null;
+let textFiles = [];
+let textPreparation = 0;
 function clearPdfFile() {
   if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+  quotePdfFile = null; textFiles = [];
   pdfUrl = ''; $('pdf-ready').hidden = true; $('pdf-ready').removeAttribute('href');
 }
 function fingerprint() { return JSON.stringify(normalizeOrder(readOrder())); }
@@ -504,7 +504,7 @@ function showPreview(html) {
   $('preview-wrap').hidden = false;
 }
 
-async function downloadPdf(html, filename, record = activeQuote) {
+async function downloadPdf(html, filename, record = activeQuote, download = true) {
   if (typeof window.html2canvas !== 'function' || !window.jspdf || !window.jspdf.jsPDF) {
     throw new Error('PDF library did not load');
   }
@@ -552,10 +552,14 @@ async function downloadPdf(html, filename, record = activeQuote) {
       pdf.addImage(slice.toDataURL('image/png'), 'PNG', 0, 0, pageW, drawH);
     }
     if (record?.document) pdf.setProperties({ title: `Ray’s Rentals ${record.number}`, subject: encodeQuotePdf(record) });
+    if (html !== lastHtml || record !== activeQuote || dirty) {
+      throw new Error('The quote changed while its PDF was preparing. Save your changes and try again.');
+    }
     clearPdfFile();
     const blob = pdf.output('blob'); pdfUrl = URL.createObjectURL(blob);
+    quotePdfFile = new File([blob], filename, { type: 'application/pdf' });
     $('pdf-ready').href = pdfUrl; $('pdf-ready').download = filename; $('pdf-ready').target = '_blank'; $('pdf-ready').hidden = false;
-    $('pdf-ready').click();
+    if (download) $('pdf-ready').click();
     status(`${lastNumber} PDF is ready. Your editable quote stays in Saved quotes.`, 'ok');
   } finally {
     iframe.remove();
@@ -704,7 +708,7 @@ function syncShareButtons() {
   emailBtn.disabled = !email;
   textBtn.disabled = !phone;
   emailBtn.title = email ? `Email ${lastNumber}` : 'No email on this quote';
-  textBtn.title = phone ? `Text ${lastNumber}` : 'No phone number on this quote';
+  textBtn.title = phone ? `Prepare both PDFs and a message for ${lastPriced.customerName}` : 'No phone number on this quote';
   const hint = $('share-hint');
   if (!hint) return;
   if (!ready) {
@@ -714,11 +718,11 @@ function syncShareButtons() {
   } else if (!email && !phone) {
     hint.textContent = `${lastNumber} is ready. Add a phone or email and generate again to text or email it.`;
   } else if (!email) {
-    hint.textContent = `${lastNumber} is saved. Download the PDF to attach it to a text.`;
+    hint.textContent = `${lastNumber} is saved. Tap Text customer to prepare your message and both PDFs.`;
   } else if (!phone) {
     hint.textContent = `${lastNumber} is saved. Download the PDF to attach it to an email.`;
   } else {
-    hint.textContent = `${lastNumber} is ready. Save it as a booking, or email / text the summary. Attach the PDF from Downloads.`;
+    hint.textContent = `${lastNumber} is ready. Tap Text customer to prepare your message, quote PDF, and payment PDF.`;
   }
 }
 
@@ -874,16 +878,77 @@ function emailQuote() {
   window.location.href = quoteMailtoHref(email, draft.subject, draft.body);
 }
 
-function textQuote() {
-  if (!lastPriced || !lastNumber) return;
-  const phone = String(lastPriced.phone || '').trim();
-  if (!phoneDigits(phone)) {
-    alert('No phone number entered.');
-    status('No phone number entered.', 'err');
-    return;
+const PAYMENT_PDF = '/assets/docs/Rays-Rentals-Deposit-Payment-Information.pdf';
+
+async function copyText(value, feedback) {
+  try {
+    await navigator.clipboard.writeText(value);
+    $('text-feedback').textContent = feedback;
+  } catch {
+    $('text-feedback').textContent = 'Copy is unavailable. Select and copy the text shown above.';
   }
-  window.location.href = quoteSmsHref(phone, quoteShareSummary(lastPriced, lastNumber));
 }
+
+async function textQuote() {
+  if (!lastPriced || !lastNumber || dirty || busy) return;
+  const phone = String(lastPriced.phone || '').trim();
+  if (!phoneDigits(phone)) return;
+  const token = ++textPreparation;
+  textFiles = [];
+  const first = String(lastPriced.customerName || '').trim().split(/\s+/)[0] || 'there';
+  const date = lastPriced.rentalDate;
+  const when = /^\d{4}-\d{2}-\d{2}$/.test(date || '')
+    ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'your event';
+  $('text-recipient').value = phone;
+  $('text-message').value = `Hi ${first}! Here's your Rays Rentals quote for ${when}, along with the payment information to reserve your date. Your deposit is ${formatMoney(lastPriced.depositCents)}. Let us know if you have any questions—we're happy to help!`;
+  $('share-pdfs').disabled = true;
+  $('text-feedback').textContent = 'Preparing your quote and payment PDFs…';
+  $('text-quote-file').hidden = true;
+  $('text-dialog').showModal();
+  try {
+    const response = await fetch(PAYMENT_PDF, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error('Payment PDF could not be loaded. Please try again.');
+    const paymentBlob = await response.blob();
+    if (!(await paymentBlob.slice(0, 5).text()).startsWith('%PDF-')) throw new Error('Payment PDF could not be loaded.');
+    if (token !== textPreparation || !$('text-dialog').open) return;
+    if (!quotePdfFile) await downloadPdf(lastHtml, quoteFilename(lastNumber, 'pdf'), activeQuote, false);
+    if (token !== textPreparation || !$('text-dialog').open) return;
+    textFiles = [quotePdfFile, new File([paymentBlob], 'Rays-Rentals-Deposit-Payment-Information.pdf', { type: 'application/pdf' })];
+    $('text-quote-file').href = pdfUrl;
+    $('text-quote-file').download = quotePdfFile.name;
+    $('text-quote-file').hidden = false;
+    const supported = !!navigator.share && !!navigator.canShare && navigator.canShare({ files: textFiles });
+    $('share-pdfs').disabled = !supported;
+    $('text-feedback').textContent = supported
+      ? 'Both PDFs are ready. Choose Messages, select the customer shown above, check the message and attachments, then tap Send.'
+      : 'This browser cannot share PDF attachments. Download both PDFs below, then open the text and attach them in Messages. On iPhone, try opening HQ in Safari.';
+  } catch (error) {
+    if (token === textPreparation) $('text-feedback').textContent = error.message || 'Could not prepare the PDFs. Close and try again.';
+  }
+}
+
+$('close-text').addEventListener('click', () => $('text-dialog').close());
+$('text-dialog').addEventListener('close', () => { textPreparation++; textFiles = []; });
+$('copy-customer-phone').addEventListener('click', () => copyText($('text-recipient').value, 'Customer number copied.'));
+$('copy-customer-message').addEventListener('click', () => copyText($('text-message').value, 'Message copied. Paste it into Messages if your phone omits it.'));
+$('open-customer-text').addEventListener('click', () => {
+  window.location.href = quoteSmsHref($('text-recipient').value, $('text-message').value);
+});
+$('share-pdfs').addEventListener('click', async () => {
+  if (textFiles.length !== 2 || dirty || busy) return;
+  $('share-pdfs').disabled = true;
+  try {
+    // All files are prepared first so this call retains the tap's user activation.
+    await navigator.share({ files: textFiles, text: $('text-message').value, title: `Rays Rentals ${lastNumber}` });
+    $('text-feedback').textContent = 'Files handed to your phone. HQ cannot confirm sending; check Messages for the recipient, both PDFs, and delivery status.';
+  } catch (error) {
+    $('text-feedback').textContent = error.name === 'AbortError'
+      ? 'Share canceled. Nothing was marked as sent. You can try again.'
+      : 'Your phone could not share the files. Use the downloads and Open text only below.';
+  } finally {
+    $('share-pdfs').disabled = textFiles.length !== 2;
+  }
+});
 
 $('generate-quote').addEventListener('click', () => generate(true));
 $('save-quote').addEventListener('click', () => generate(false));
