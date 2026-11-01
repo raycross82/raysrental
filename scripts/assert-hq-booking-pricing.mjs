@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { CATALOG, priceOrder, quoteBookingDraft, migrateTrackerStore } from '../hq/public/assets/js/quote-doc.js';
+import { upsertSavedQuote, orderForQuote, convertSavedQuote, encodeQuotePdf, decodeQuotePdf } from '../hq/public/assets/js/saved-quotes.js';
+const config=JSON.parse(readFileSync(new URL('../pricing.json',import.meta.url)));
+for(const [id,key] of Object.entries({table:'tables',chair:'chairs',cooler:'coolers',speaker:'speakers'})) assert.equal(CATALOG.find(x=>x.id===id).rateCents,config.rates[key]*100);
+for(const [id,pkg] of Object.entries(config.packages)) {
+  const priced=priceOrder({items:[{id,qty:1}]});
+  assert.equal(priced.totalCents,pkg.price*100);
+  const b=quoteBookingDraft(priced,'test');
+  assert.deepEqual(b.items,{tables:pkg.tables,chairs:pkg.chairs,coolers:pkg.coolers||1,speakers:pkg.speakers});
+  assert.equal(priceOrder({items:[{id,qty:1},{id:'cooler',qty:3}]}).totalCents,(pkg.price+(pkg.coolers?3:2)*18)*100);
+}
+assert.equal(priceOrder({chairs:39,coolers:1}).totalCents,11550);
+assert.equal(priceOrder({chairs:40,coolers:1}).totalCents,10000);
+assert.equal(priceOrder({chairs:40,coolers:2}).totalCents,11800);
+assert.equal(priceOrder({items:[{id:'tablecloth',qty:40}]}).showPromo,false);
+const old={id:1001,number:'RR-1101-01',status:'Draft',customer:'QA Customer',phone:'2145550100',email:'qa@example.com',start:'2026-11-07T09:00',end:'2026-11-07T20:00',items:{tables:15,chairs:80,coolers:1,speakers:0},notes:'Call before arrival',document:{version:1,uid:'old-pdf',date:'2026-11-01',order:{customerName:'QA Customer',phone:'2145550100',email:'qa@example.com',rentalDate:'2026-11-07',items:[{id:'table',qty:15,rate:8},{id:'chair',qty:80,rate:2}],delivery:20,setup:50,includeFreeCooler:true},totals:{total:350,deposit:70,balance:280}}};
+const state={quotes:[structuredClone(old)],bookings:[{id:9,customer:'Existing',price:123}],nextId:1,inventory:[{id:'tables',qty:99,price:8},{id:'tent',qty:2,price:50}],rev:3};
+const first=convertSavedQuote(state,1001);
+assert.equal(first.created,true);assert.equal(first.booking.id,10);assert.equal(first.booking.price,350);assert.equal(first.booking.deposit,70);assert.equal(first.booking.paid,0);assert.equal(first.booking.status,'Deposit Due');assert.equal(first.booking.email,'qa@example.com');assert.equal(first.booking.start,old.start);assert.equal(first.booking.end,old.end);assert.equal(first.booking.items.chairs,80);assert.match(first.booking.notes,/Call before arrival/);
+assert.deepEqual(state.bookings[0],{id:9,customer:'Existing',price:123});
+assert.equal(state.inventory[0].price,9);assert.equal(state.inventory[0].qty,99);assert.equal(state.inventory[1].price,50);
+state.inventory[0].price=11;migrateTrackerStore(state);assert.equal(state.inventory[0].price,11,'migration runs once');
+assert.equal(convertSavedQuote(state,1001).created,false);assert.equal(state.bookings.length,2);
+const oldSmall={...old,document:{...old.document,order:{...old.document.order,items:[{id:'chair',qty:25,rate:2},{id:'cooler',qty:1,rate:12}],delivery:0,setup:0}}};
+assert.equal(priceOrder(orderForQuote(oldSmall)).totalCents,5000,'legacy promotion is frozen');
+const restored=decodeQuotePdf(new TextEncoder().encode('%PDF-1.3\n'+encodeQuotePdf(oldSmall)));
+assert.equal(priceOrder(restored.order).totalCents,5000,'older PDFs restore old promotion');
+const later=upsertSavedQuote(state,{uid:'next-year',number:old.number,date:'2027-11-01',order:{customerName:'Next year',rentalDate:'2027-11-07',items:[{id:'party60',qty:1}],setup:50,delivery:20}});
+assert.equal(convertSavedQuote(state,later.quote.id).created,true,'annual number reuse is a distinct quote');
+assert.equal(convertSavedQuote(state,later.quote.id).created,false);
+const agreement={id:1005,number:'Q-1005',status:'Draft',customer:'Agreement',start:old.start,end:old.end,items:{chairs:3},pricingVersion:'2'};state.quotes.push(agreement);
+assert.throws(()=>convertSavedQuote(state,1005),/Signed first/);agreement.status='Signed';
+assert.equal(convertSavedQuote(state,1005).booking.price,7.5);
+const tracker=readFileSync(new URL('../hq/public/index.html',import.meta.url),'utf8');
+function fn(name){const a=tracker.indexOf('function '+name+'(');return tracker.slice(a,tracker.indexOf('\n}',a)+2);}
+const context=vm.createContext({S:state,QUOTE_ITEM_IDS:['tables','chairs','coolers','speakers'],QUOTE_RATES:config.rates,LEGACY_QUOTE_RATES:{tables:8,chairs:2,coolers:12,speakers:30},esc:String,fmtD:String,fmt$:n=>'$'+n,itemsSummary:()=>'',quoteItemName:x=>x,quoteTag:()=>'',quoteSmsHref:()=>''});
+for(const n of ['quoteDays','quoteQty','quoteTotals','quotePayload','quoteCard']) vm.runInContext(fn(n),context);
+context.q=old;assert.match(vm.runInContext('quoteCard(q)',context),/class="q-act go"[^>]*onclick="convertQuote\(1001\)"/);
+context.q={...old,document:undefined};assert.match(vm.runInContext('quoteCard(q)',context),/disabled title="Mark this quote Signed first/);
+context.q={...agreement,status:'Draft'};assert.equal(vm.runInContext('quoteTotals(q).total',context),7.5);assert.ok(vm.runInContext('quotePayload(q)',context).startsWith('2|'));
+context.q={...agreement,pricingVersion:undefined};assert.equal(vm.runInContext('quoteTotals(q).total',context),6);assert.ok(vm.runInContext('quotePayload(q)',context).startsWith('1|'));
+console.log('assert-hq-booking-pricing: passed — public price parity, packages, promotion boundaries, legacy PDFs, conversion, repeat clicks, annual quote IDs, inventory migration, agreement compatibility');
