@@ -67,3 +67,12 @@ for (const p of posts) {
 }
 writeFileSync('out/sitemap.xml',sitemap);
 console.log(`build-editorial: rendered ${posts.length} article(s), blog cards, BlogPosting/Breadcrumb schema and sitemap entries`);
+
+// Align visible FAQ and its Answer schema with the current quote's fulfillment terms.
+const oldDelivery = 'Both! Pickup at our DFW lot is always free. Prefer delivery? We bring everything to your venue and set it up — delivery is priced by your location.';
+const newDelivery = 'Customer pickup is free. Delivery and optional setup are quoted separately by location. Confirm the unloading point, setup work, and return or collection arrangements with Ray before booking.';
+let faq=read('out/faq/index.html');
+const oldCount=faq.split(oldDelivery).length-1;
+assert.ok(oldCount===2 || (oldCount===0 && faq.split(newDelivery).length-1===2), 'Unexpected delivery FAQ source');
+faq=faq.replaceAll(oldDelivery,newDelivery);
+writeFileSync('out/faq/index.html',faq);

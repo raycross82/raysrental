@@ -1,5 +1,21 @@
 [
   {
+    "slug": "pickup-delivery-setup-party-rentals-dfw",
+    "title": "Party Rental Pickup, Delivery and Setup in DFW: What to Confirm",
+    "description": "Plan table and chair pickup, delivery, optional setup and returns in DFW. Know which access details and timing questions to confirm before booking.",
+    "category": "Rental planning",
+    "summary": "A practical checklist for transport, venue access, furniture setup and returns, with clear questions to get an accurate rental quote.",
+    "bodyFile": "pickup-delivery-setup-party-rentals-dfw.html",
+    "reviewedOn": "2026-11-09",
+    "sources": [
+      "https://raysrental.com/quote/",
+      "https://raysrental.com/faq/",
+      "https://raysrental.com/inventory/"
+    ],
+    "rationale": "Observed FAQ implies included setup while quote summary states optional separately quoted setup. Guide addresses that ambiguity; no measured demand or uplift claim.",
+    "intent": "Help DFW customers choose fulfillment and describe access, setup and return requirements."
+  },
+  {
     "slug": "thanksgiving-friendsgiving-rentals-dfw",
     "title": "Thanksgiving & Friendsgiving Table and Chair Rentals in DFW",
     "description": "Plan holiday seating for 12 to 30 guests, allow room for serving dishes, and compare table and chair rental costs for your DFW gathering.",
@@ -7,7 +23,11 @@
     "summary": "A practical holiday dinner checklist: seating for 12 to 30 guests, extra serving tables, rental cost examples and pickup or delivery planning.",
     "bodyFile": "thanksgiving-friendsgiving-rentals-dfw.html",
     "reviewedOn": "2026-11-03",
-    "sources": ["https://raysrental.com/quote/", "https://raysrental.com/inventory/", "https://raysrental.com/blog/seating-guide/"],
+    "sources": [
+      "https://raysrental.com/quote/",
+      "https://raysrental.com/inventory/",
+      "https://raysrental.com/blog/seating-guide/"
+    ],
     "rationale": "Seasonal planning hypothesis for November; existing blog has no holiday dinner guide. No search-volume or conversion uplift claim: analytics retrieval is unavailable.",
     "intent": "Help DFW hosts plan seating and request availability for a Thanksgiving or Friendsgiving meal."
   }
