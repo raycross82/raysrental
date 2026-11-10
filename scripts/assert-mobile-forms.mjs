@@ -6,7 +6,7 @@ const source=html.split('/* rr-agreement-handoff:start */')[1].split('/* rr-agre
 function harness(mode='success') {
   const events=[], requests=[], timers=[], listeners={};
   const node=(value='')=>({value,hidden:false,textContent:'Send request',listeners:{},parentNode:{insertBefore(){}},setAttribute(){},focus(){this.focused=true;},setCustomValidity(v){this.error=v;},addEventListener(k,fn){this.listeners[k]=fn;}});
-  const elements=Object.fromEntries(Object.entries({name:' QA Test ',phone:'2145550100',email:'',address:'',city:'Dallas',date:'2026-12-01',dropoffTiming:'Morning of the event',pickupTiming:'Morning after the event',fulfillment:'Free Pickup',package:'none','form-name':'quote'}).map(([k,v])=>[k,node(v)]));
+  const elements=Object.fromEntries(Object.entries({name:' QA Test ',phone:'2145550100',email:'',address:'',city:'Dallas',date:'2026-12-01',dropoffTiming:'Morning of the event',pickupTiming:'Morning after the event',fulfillment:'Delivery & Setup',package:'none','form-name':'quote'}).map(([k,v])=>[k,node(v)]));
   const quantities=Object.fromEntries(['tables','chairs','coolers','speakers'].map(k=>['q-'+k,node(k==='tables'?'5':k==='chairs'?'30':'0')]));
   const button=node(), error=node();
   const form={elements,querySelector:()=>button,reportValidity:()=>!!elements.name.value&&!elements.phone.error,addEventListener:(k,fn)=>listeners[k]=fn};
@@ -66,7 +66,7 @@ function agreementHarness(mode='success') {
  return {node,requests,events,timers,submit,sign,settle:happy.settle};
 }
 for(const mode of ['success','failure','pending']){
- const h=agreementHarness(mode);assert.equal(h.node('f-total').value,'120');assert.equal(h.node('f-deposit').value,'30');assert.equal(h.node('f-coolers').value,'1');assert(h.node('ag-submit').disabled);h.submit();assert.equal(h.requests.length,0);
+ const h=agreementHarness(mode);assert.equal(h.node('f-total').value,'To be confirmed');assert.equal(h.node('f-deposit').value,'To be confirmed');assert.equal(h.node('f-coolers').value,'1');assert(h.node('ag-submit').disabled);h.submit();assert.equal(h.requests.length,0);
  h.sign();assert(!h.node('ag-submit').disabled);h.node('ag-clear').listeners.click();assert(h.node('ag-submit').disabled);h.sign();h.submit();h.submit();assert.equal(h.requests.length,1);
  if(mode==='pending')h.timers[0]();await h.settle();
  if(mode==='success'){assert(h.node('ag-form').hidden);assert(!h.node('ag-done').hidden);assert(h.events.some(e=>e[1]==='agreement_signed'));}
