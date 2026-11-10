@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const files = fs.readdirSync('out', {recursive:true}).filter(p=>p.endsWith('.html'));
 const edits = [
+ ['<h2>Two Easy Ways</h2>', '<h2>Delivery to Your Event</h2>'],
  [", or at our lot if you are collecting, which costs nothing and works fine for anything that fits in an SUV with the seats folded down.", "."],
  [", or nothing at all if you collect the order yourself.", "."],
  ["Most weekend events are picked up Friday or Saturday and returned Sunday or Monday", "Most weekend events have delivery Friday or Saturday and collection Sunday or Monday"],
