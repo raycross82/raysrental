@@ -1,0 +1,104 @@
+.tent-gallery {
+  position: relative;
+  margin: 20px 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.tent-gallery-sr,
+.tent-gallery-choice {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.tent-gallery-stage {
+  border-radius: 12px;
+  background: var(--blue-tint);
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+}
+.tent-gallery-stage img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.tent-view-delivery {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  height: 100%;
+  margin: 0;
+  background: #f5f1e9;
+}
+.tent-view-delivery img {
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+.tent-view-delivery figcaption {
+  padding: clamp(10px, 2vw, 24px);
+  font-size: clamp(.85rem, 1.8vw, 1rem);
+}
+.tent-view-delivery strong,
+.tent-view-delivery a { display: block; }
+.tent-view-delivery strong { color: var(--navy); margin-bottom: 6px; }
+.tent-view-delivery a { margin-top: 10px; text-decoration: underline; }
+#tent-lawn:not(:checked) ~ .tent-gallery-stage .tent-view-lawn,
+#tent-seating:not(:checked) ~ .tent-gallery-stage .tent-view-seating,
+#tent-delivery:not(:checked) ~ .tent-gallery-stage .tent-view-delivery,
+#tent-delivery:checked ~ #tent-photo-note .tent-example-note {
+  display: none;
+}
+.tent-gallery-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.tent-gallery-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 10px 4px 4px;
+  background: white;
+  color: var(--navy);
+  font: 700 .9rem/1.2 var(--sans);
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+.tent-gallery-options img {
+  width: 46px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+#tent-lawn:checked ~ .tent-gallery-options [for="tent-lawn"],
+#tent-seating:checked ~ .tent-gallery-options [for="tent-seating"],
+#tent-delivery:checked ~ .tent-gallery-options [for="tent-delivery"] {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
+  background: var(--blue-tint);
+}
+#tent-lawn:focus-visible ~ .tent-gallery-options [for="tent-lawn"],
+#tent-seating:focus-visible ~ .tent-gallery-options [for="tent-seating"],
+#tent-delivery:focus-visible ~ .tent-gallery-options [for="tent-delivery"] {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+#tent-photo-note {
+  display: block;
+  color: var(--ink-soft);
+  font-size: .83rem;
+  line-height: 1.45;
+}
+@media (max-width: 500px) {
+  .tent-gallery-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .tent-gallery-options label { justify-content: center; flex-direction: column; gap: 4px; padding: 5px 3px; font-size: .78rem; }
+}

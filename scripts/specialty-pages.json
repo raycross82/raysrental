@@ -12,8 +12,8 @@
       ["How much will my tent rental cost?", "We price tents by quote. Send the date and event city first. Ray will check availability, confirm what delivery, setup and takedown would cost for your location, and go over the total with you before you book."]
     ],
     "cta": "Check tent availability",
-    "prompt": "Your date and city are enough to start. Add your guest count or setup details if you have them.",
-    "notesLabel": "Guest count, tables, chairs or setup details (optional)",
+    "prompt": "Ask about your date and add any rentals you need. Ray will text you one quote for your setup.",
+    "notesLabel": "Guest count or setup notes (optional)",
     "notesExample": "e.g. 35 guests, seating for 24 and one buffet table, on grass",
     "related": ["round-table-rentals", "white-resin-chair-rentals"]
   },

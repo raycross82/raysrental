@@ -1,0 +1,37 @@
+<fieldset class="tent-gallery" aria-describedby="tent-photo-note">
+  <legend class="tent-gallery-sr">Choose a tent photo</legend>
+  <input class="tent-gallery-choice" id="tent-lawn" name="tent-view" type="radio" checked>
+  <input class="tent-gallery-choice" id="tent-seating" name="tent-view" type="radio">
+  <input class="tent-gallery-choice" id="tent-delivery" name="tent-view" type="radio">
+  <div class="tent-gallery-stage">
+    <img class="tent-view-lawn"
+         src="/assets/img/tent-examples/tent-on-lawn-1000.webp"
+         srcset="/assets/img/tent-examples/tent-on-lawn-480.webp 480w, /assets/img/tent-examples/tent-on-lawn-1000.webp 1000w"
+         sizes="(max-width: 760px) calc(100vw - 40px), (max-width: 1180px) 46vw, 540px"
+         width="1000" height="667" fetchpriority="high"
+         alt="Example of an open-sided white party tent on a lawn, shown without furniture">
+    <img class="tent-view-seating"
+         src="/assets/img/tent-examples/tent-with-seating-1000.webp"
+         srcset="/assets/img/tent-examples/tent-with-seating-480.webp 480w, /assets/img/tent-examples/tent-with-seating-1000.webp 1000w"
+         sizes="(max-width: 760px) calc(100vw - 40px), (max-width: 1180px) 46vw, 540px"
+         width="1000" height="667" loading="lazy"
+         alt="Example of folding tables and chairs arranged under a white backyard party tent">
+    <figure class="tent-view-delivery">
+      <img src="/assets/img/tent-examples/rays-delivery-480.webp"
+           srcset="/assets/img/tent-examples/rays-delivery-480.webp 480w, /assets/img/tent-examples/rays-delivery-1000.webp 1000w"
+           sizes="(max-width: 760px) 46vw, 245px"
+           width="480" height="640" loading="lazy"
+           alt="Stacks of white folding chairs and a hand truck beside a white windowed tent on a lawn">
+      <figcaption><strong>From a Ray’s Rentals delivery</strong>
+        Folding chairs ready for a tented event.
+        <a href="/assets/img/tent-examples/rays-delivery-1000.webp">See full photo</a>
+      </figcaption>
+    </figure>
+  </div>
+  <div class="tent-gallery-options">
+    <label for="tent-lawn"><img src="/assets/img/tent-examples/tent-on-lawn-480.webp" width="54" height="38" alt="">Tent only</label>
+    <label for="tent-seating"><img src="/assets/img/tent-examples/tent-with-seating-480.webp" width="54" height="38" alt="">With seating</label>
+    <label for="tent-delivery"><img src="/assets/img/tent-examples/rays-delivery-480.webp" width="54" height="38" alt="" loading="lazy">Ray’s delivery</label>
+  </div>
+  <small id="tent-photo-note"><span class="tent-example-note">Illustrative setup. </span>Ray will confirm the tent style and size available for your date.</small>
+</fieldset>

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NEW_DISPLAY, NEW_E164 } from './phone.mjs';
+import { tentAddons } from './tent-addons.mjs';
 
 const root = 'out';
 const base = 'https://raysrental.com';
@@ -19,8 +20,10 @@ const formStart = template.indexOf(formMarker);
 const gridEnd = template.indexOf('\n  </div>\n</section>', formStart);
 assert(formStart > 0 && gridEnd > formStart, 'Availability form layout changed');
 const originalCard = template.slice(formStart, gridEnd);
+const tentGallery = readFileSync('tent-gallery.html', 'utf8');
 const links = entries => entries.map(item => `<a class="chip" href="/${item.slug}/">${escape(item.label)}</a>`).join(' ');
 for (const item of catalog) {
+  const isTent = item.slug === 'tent-rentals';
   const url = `${base}/${item.slug}/`;
   const title = `${item.title} | Ray's Rentals`;
   const crumbs = [
@@ -46,7 +49,10 @@ for (const item of catalog) {
   card = replaceOnce(card, '<h2>Check my date</h2>', `<h2>${escape(item.cta)}</h2>`);
   card = replaceOnce(card, 'Four quick details. Guest count and rental items can come later.', escape(item.prompt));
   card = replaceOnce(card, 'value="Availability inquiry — not a reservation"', `value="${escape(item.label)} inquiry"`);
-  if (item.slug === 'tent-rentals') {
+  if (isTent) {
+    head = replaceOnce(head, '</head>', '<link rel="stylesheet" href="/assets/css/tent-gallery.css"><link rel="stylesheet" href="/assets/css/tent-addons.css"><script defer src="/assets/js/tent-addons.js"></script></head>');
+    const notes = '<div class="rr-wide"><label for="a-items">';
+    card = replaceOnce(card, notes, tentAddons + '\n' + notes);
     card = replaceOnce(card, 'id="availabilityForm"', 'id="availabilityForm" data-sms-subject="party tent availability"');
     card = replaceOnce(card, 'Guest count or rentals (optional)', escape(item.notesLabel));
     card = replaceOnce(card, 'placeholder="e.g. 30 guests, or 5 tables and 30 chairs"', `placeholder="${escape(item.notesExample)}"`);
@@ -61,16 +67,19 @@ for (const item of catalog) {
     return entry;
   });
   const speaker = item.slug === 'dj-services' ? '<p>Bringing your own playlist? The <a href="/inventory/">JBL speaker rental</a> is a separate equipment-only option.</p>' : '';
+  const moreRentals = isTent
+    ? '<h2>Need tables, chairs or sound with your tent?</h2><div class="rr-specialty-links"><a class="btn btn-primary" href="#specialty-request" data-choose-tent-addons>Add rentals to my request</a><a class="chip" href="/inventory/">Browse all rental prices</a></div>'
+    : `<h2>Also planning for ${item.slug === 'dj-services' ? 'seating or cover' : 'the rest of your event'}?</h2><div class="rr-specialty-links">${links(related)} <a class="chip" href="/inventory/">All rentals</a></div>`;
   const markup = `<main class="rr-specialty">
     <nav class="container rr-specialty-crumbs" aria-label="Breadcrumb"><a href="/">Home</a> / <a href="/inventory/">Inventory</a> / <span aria-current="page">${escape(item.label)}</span></nav>
     <section class="rr-availability"><div class="container rr-availability-grid"><div class="rr-availability-intro">
-    <h1>${escape(item.title)}</h1><p class="lead">${escape(item.intro)}</p>
+    <h1>${escape(item.title)}</h1><p class="lead">${escape(item.intro)}</p>${isTent ? tentGallery : ''}
     <p>Send your event date and city. Ray will text you back with availability and pricing.</p>
     <p><a class="btn btn-primary" href="#specialty-request">${escape(item.cta)}</a></p>
     <p>Prefer to text? <a href="sms:${NEW_E164}">${NEW_DISPLAY}</a></p>${speaker}
     </div>${card}</div></section>
     <section class="rr-specialty-details"><div class="container"><h2>${escape(item.section)}</h2><div class="grid grid-3">${cases}</div></div></section>
-    <section><div class="container"><h2>Also planning for ${item.slug === 'dj-services' ? 'seating or cover' : 'the rest of your event'}?</h2><div class="rr-specialty-links">${links(related)} <a class="chip" href="/inventory/">All rentals</a></div></div></section></main>`;
+    <section><div class="container">${moreRentals}</div></section></main>`;
   mkdirSync(join(root, item.slug), {recursive:true});
   write(item.slug+'/index.html', head + markup + template.slice(template.indexOf('</main>') + '</main>'.length));
 }
