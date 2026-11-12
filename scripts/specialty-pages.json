@@ -1,0 +1,68 @@
+[
+  {
+    "slug": "tent-rentals",
+    "label": "Party tent rentals",
+    "title": "Party Tent Rentals in Dallas–Fort Worth",
+    "description": "Planning a backyard party in Dallas–Fort Worth? Check tent availability for your date and request pricing for a tent, tables and chairs together.",
+    "intro": "Need shade for a backyard birthday, graduation party or family cookout? Tell Ray what you want under cover. You can ask about a party tent on its own or get tables and chairs on the same quote.",
+    "section": "Planning a backyard tent rental",
+    "details": [
+      ["What size tent will fit my yard?", "Start with the length and width of the open space, if you know them. Mention the surface, any low branches and how we’d get into the yard. A photo by text helps Ray check which options could fit."],
+      ["Can I request tables and chairs with the tent?", "Yes. Tell us how many guests will sit down at once. At a come-and-go graduation, that may be fewer than the number invited. Mention any buffet, cake or gift tables that also need shade so we can quote the whole setup together."],
+      ["How much will my tent rental cost?", "We price tents by quote. Send the date and event city first. Ray will check availability, confirm what delivery, setup and takedown would cost for your location, and go over the total with you before you book."]
+    ],
+    "cta": "Check tent availability",
+    "prompt": "Ask about your date and add any rentals you need. Ray will text you one quote for your setup.",
+    "notesLabel": "Guest count or setup notes (optional)",
+    "notesExample": "e.g. 35 guests, seating for 24 and one buffet table, on grass",
+    "related": ["round-table-rentals", "white-resin-chair-rentals"]
+  },
+  {
+    "slug": "dj-services",
+    "label": "DJ services",
+    "title": "DJ Services for Dallas–Fort Worth Events",
+    "description": "Request DJ availability for a DFW party, wedding or quinceañera. Share the venue, music preferences, announcements and hours you want covered.",
+    "intro": "Need someone to play the music and keep your event on schedule? Tell us when guests arrive, when the music ends and which moments you want the DJ to handle.",
+    "section": "Plan the music around your event",
+    "details": [
+      ["Playing time", "A ceremony, dinner and dance floor can have different start times or even different locations. Include each one so the quote covers the hours and spaces you need."],
+      ["Music and announcements", "Tell us the music styles your guests like and whether you want introductions, a first dance, toasts or quinceañera entrances. Mention any language preference for announcements."],
+      ["Venue details", "Share the venue name, whether the DJ will be indoors or outdoors, vendor access hours and any sound cutoff. We’ll confirm the DJ, equipment and services included in your quote."]
+    ],
+    "cta": "Check DJ availability",
+    "prompt": "Tell us your event type, hours and any announcements.",
+    "related": ["tent-rentals", "round-table-rentals"]
+  },
+  {
+    "slug": "round-table-rentals",
+    "label": "Round tables",
+    "title": "Round Table Rentals in Dallas–Fort Worth",
+    "description": "Request round banquet tables for a DFW wedding, quinceañera or party. Get a quote for table size, quantity, chairs and delivery to your venue.",
+    "intro": "Planning dinner seating around round tables? Send your guest count or the number of tables on your venue plan. Ray will confirm the available diameter and quantity for your date.",
+    "section": "From a guest count to a table count",
+    "details": [
+      ["Seating layout", "If your venue already has a floor plan, tell us how many rounds it allows. Otherwise, share your guest count, room size and how many people you’d like at each table."],
+      ["Tables that do another job", "A cake table, gift table or sweetheart table may need its own spot. List those separately so every table in your quote has a purpose."],
+      ["Chairs and linens", "Tell us whether you also need chairs. If you’re arranging linens, ask us to confirm the table diameter before you choose a cloth size."]
+    ],
+    "cta": "Request round table pricing",
+    "prompt": "Tell us the number of tables or guests and any preferred diameter.",
+    "related": ["white-resin-chair-rentals", "tent-rentals"]
+  },
+  {
+    "slug": "white-resin-chair-rentals",
+    "label": "White resin chairs",
+    "title": "White Resin Chair Rentals in Dallas–Fort Worth",
+    "description": "Ask Ray’s Rentals about white resin chairs for a DFW ceremony, reception or party. Confirm the chair style, quantity and delivery details for your event.",
+    "intro": "Planning ceremony rows, dinner seating or both? Tell us where the chairs will go and how many guests need a seat. We’ll confirm the chair style, availability and price for your date.",
+    "section": "Get the seating right for each part of the day",
+    "details": [
+      ["Ceremony rows", "Start with the number of guests who need a seat. Tell us if you’re saving a front row for family or leaving extra space beside the aisle."],
+      ["Reception seating", "Share the number of tables and seats per table. If ceremony and dinner seating overlap, mention whether you want separate sets or plan to move the chairs between them."],
+      ["Style and setup", "If your venue requires a particular chair or you’re matching a photo, text it to Ray. Include any setup request and the venue’s delivery window in your inquiry."]
+    ],
+    "cta": "Check resin chair availability",
+    "prompt": "Tell us the chair quantity and ceremony or reception layout.",
+    "related": ["round-table-rentals", "tent-rentals"]
+  }
+]
