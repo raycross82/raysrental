@@ -46,7 +46,14 @@ for (const item of catalog) {
   card = replaceOnce(card, '<h2>Check my date</h2>', `<h2>${escape(item.cta)}</h2>`);
   card = replaceOnce(card, 'Four quick details. Guest count and rental items can come later.', escape(item.prompt));
   card = replaceOnce(card, 'value="Availability inquiry — not a reservation"', `value="${escape(item.label)} inquiry"`);
-  card = replaceOnce(card, 'placeholder="e.g. 30 guests, or 5 tables and 30 chairs"></textarea>', `placeholder="${escape(item.prompt)}">${escape(item.label)} — </textarea>`);
+  if (item.slug === 'tent-rentals') {
+    card = replaceOnce(card, 'id="availabilityForm"', 'id="availabilityForm" data-sms-subject="party tent availability"');
+    card = replaceOnce(card, 'Guest count or rentals (optional)', escape(item.notesLabel));
+    card = replaceOnce(card, 'placeholder="e.g. 30 guests, or 5 tables and 30 chairs"', `placeholder="${escape(item.notesExample)}"`);
+    card = replaceOnce(card, 'Send my availability request', 'Send my tent request');
+  } else {
+    card = replaceOnce(card, 'placeholder="e.g. 30 guests, or 5 tables and 30 chairs"></textarea>', `placeholder="${escape(item.prompt)}">${escape(item.label)} — </textarea>`);
+  }
   const cases = item.details.map(([heading, body]) => `<article class="card"><h3>${escape(heading)}</h3><p>${escape(body)}</p></article>`).join('\n');
   const related = item.related.map(slug => {
     const entry = catalog.find(candidate => candidate.slug === slug);

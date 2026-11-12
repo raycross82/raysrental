@@ -36,7 +36,8 @@
     var data = new FormData(form);
     var details = String(data.get('items') || '').trim() || 'Please help me choose rentals.';
     data.set('items', 'Availability inquiry (not a booking). ' + details);
-    var message = "Hi Ray! I'd like to check availability for " + data.get('date') + ' in ' + data.get('city') + '. ' + details + ' My name is ' + data.get('name') + '.';
+    var inquiry = form.dataset?.smsSubject || 'availability';
+    var message = "Hi Ray! I'd like to check " + inquiry + ' for ' + data.get('date') + ' in ' + data.get('city') + '. ' + details + ' My name is ' + data.get('name') + '.';
     var separator = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
     textLink.href = 'sms:+14696544110' + separator + 'body=' + encodeURIComponent(message);
     sending = true;

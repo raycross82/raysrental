@@ -1,19 +1,21 @@
 [
   {
     "slug": "tent-rentals",
-    "label": "Event tents",
+    "label": "Party tent rentals",
     "title": "Party Tent Rentals in Dallas–Fort Worth",
-    "description": "Ask about a tent for your DFW backyard party, reception or outdoor event. Share the guest count, setup surface and event date for a site-specific quote.",
-    "intro": "Tell us what needs to fit under the tent. A backyard lunch with seated guests needs a different layout than a reception with a buffet, DJ and dance space.",
-    "section": "What goes into your tent quote?",
+    "description": "Planning a backyard party in Dallas–Fort Worth? Check tent availability for your date and request pricing for a tent, tables and chairs together.",
+    "intro": "Need shade for a backyard birthday, graduation party or family cookout? Tell Ray what you want under cover. You can ask about a party tent on its own or get tables and chairs on the same quote.",
+    "section": "Planning a backyard tent rental",
     "details": [
-      ["Space at the venue", "Send the approximate length and width of the open area, the surface underneath and a photo if you have one. Mention gates, steps or anything that affects delivery access."],
-      ["What you want covered", "Give us the seated guest count and tell us whether the food, music or ceremony area also needs cover. Include any tables or chairs you want quoted with the tent."],
-      ["Time on site", "Let us know when vendors can enter and when the venue needs the space cleared. We’ll confirm a suitable size, setup arrangements, availability and pricing with you."]
+      ["What size tent will fit my yard?", "Start with the length and width of the open space, if you know them. Mention the surface, any low branches and how we’d get into the yard. A photo by text helps Ray check which options could fit."],
+      ["Can I request tables and chairs with the tent?", "Yes. Tell us how many guests will sit down at once. At a come-and-go graduation, that may be fewer than the number invited. Mention any buffet, cake or gift tables that also need shade so we can quote the whole setup together."],
+      ["How much will my tent rental cost?", "We price tents by quote. Send the date and event city first. Ray will check availability, confirm what delivery, setup and takedown would cost for your location, and go over the total with you before you book."]
     ],
-    "cta": "Request a tent quote",
-    "prompt": "Tell us the guest count, surface and space available.",
-    "related": ["round-table-rentals", "dj-services"]
+    "cta": "Check tent availability",
+    "prompt": "Your date and city are enough to start. Add your guest count or setup details if you have them.",
+    "notesLabel": "Guest count, tables, chairs or setup details (optional)",
+    "notesExample": "e.g. 35 guests, seating for 24 and one buffet table, on grass",
+    "related": ["round-table-rentals", "white-resin-chair-rentals"]
   },
   {
     "slug": "dj-services",
