@@ -27,8 +27,8 @@ content and ongoing maintenance, with Ray approving public releases.
 - `pricing.json` owns current public prices, packages and promotion threshold.
 - `scripts/phone.mjs` owns current business phone information.
 - The live quote page is the reference for current deposit and fulfillment wording:
-  https://raysrental.com/quote/. At setup it states a 25% deposit after confirmation,
-  per-day pricing, free customer pickup, and separately quoted delivery/optional setup.
+  https://raysrental.com/quote/. As of November 16 it states a 25% deposit after confirmation,
+  per-day pricing, delivery-only service with after-event collection, and separately quoted delivery/optional setup.
 - Prefer the latest explicit owner-approved change when sources conflict. Flag
   contradictions for review; never infer new prices, discounts or business policies.
 - Use tokens for monetary examples in new articles. Do not change historical quotes.
@@ -45,7 +45,7 @@ content and ongoing maintenance, with Ray approving public releases.
    and label low sample sizes. Calls clicked are not completed calls or bookings.
    Exclude known test/duplicate inquiries. Keep private analytics and lead records
    out of this PUBLIC repository and public previews.
-3. Windsor reads were blocked at setup by an account-count plan limit. Account
+3. Search Console and GA4 reads succeeded November 16 after an earlier account-limit block. Account
    listings do not prove data access. Do not use substituted/demo numbers, remove
    accounts or buy an upgrade. Retry a bounded read on a later run and report the
    blocker if unresolved. Public research and technical checks can still proceed.

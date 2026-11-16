@@ -1,28 +1,44 @@
 [
   {
+    "slug": "office-holiday-party-rentals-dfw",
+    "bodyFile": "office-holiday-party-rentals-dfw.html",
+    "title": "How Many Tables and Chairs for an Office Holiday Lunch in DFW?",
+    "description": "Use the busiest lunch shift, existing break-room seating and buffet space to plan office holiday furniture. Includes a two-shift example and delivery checklist.",
+    "category": "Office events",
+    "summary": "Count seats for the busiest lunch shift, reserve room for the buffet and fit delivery around your building’s access hours.",
+    "reviewedOn": "2026-11-16",
+    "sources": [
+      "https://raysrental.com/quote/",
+      "https://raysrental.com/corporate-event-rentals/",
+      "https://raysrental.com/inventory/"
+    ],
+    "rationale": "Seasonal office meal planning distinguishes simultaneous attendance from total attendance.",
+    "intent": "Help an office organizer size a delivered furniture order for a holiday lunch."
+  },
+  {
     "slug": "pickup-delivery-setup-party-rentals-dfw",
-    "title": "Party Rental Pickup, Delivery and Setup in DFW: What to Confirm",
-    "description": "Plan table and chair pickup, delivery, optional setup and returns in DFW. Know which access details and timing questions to confirm before booking.",
+    "title": "Table and Chair Delivery in DFW: Setup and After-Event Collection",
+    "description": "Plan your DFW rental delivery, venue access, optional setup and after-event collection. Use the checklist to request a quote.",
     "category": "Rental planning",
-    "summary": "A practical checklist for transport, venue access, furniture setup and returns, with clear questions to get an accurate rental quote.",
+    "summary": "Confirm the loading entrance, furniture layout and collection window before your event.",
     "bodyFile": "pickup-delivery-setup-party-rentals-dfw.html",
-    "reviewedOn": "2026-11-09",
+    "reviewedOn": "2026-11-16",
     "sources": [
       "https://raysrental.com/quote/",
       "https://raysrental.com/faq/",
       "https://raysrental.com/inventory/"
     ],
-    "rationale": "Observed FAQ implies included setup while quote summary states optional separately quoted setup. Guide addresses that ambiguity; no measured demand or uplift claim.",
-    "intent": "Help DFW customers choose fulfillment and describe access, setup and return requirements."
+    "rationale": "Updated for delivery-only service under the current booking policy.",
+    "intent": "Help hosts coordinate delivery and after-event collection."
   },
   {
     "slug": "thanksgiving-friendsgiving-rentals-dfw",
     "title": "Thanksgiving & Friendsgiving Table and Chair Rentals in DFW",
     "description": "Plan holiday seating for 12 to 30 guests, allow room for serving dishes, and compare table and chair rental costs for your DFW gathering.",
     "category": "Holiday planning",
-    "summary": "A practical holiday dinner checklist: seating for 12 to 30 guests, extra serving tables, rental cost examples and pickup or delivery planning.",
+    "summary": "A practical holiday dinner checklist: seating for 12 to 30 guests, extra serving tables, rental cost examples and delivery planning.",
     "bodyFile": "thanksgiving-friendsgiving-rentals-dfw.html",
-    "reviewedOn": "2026-11-03",
+    "reviewedOn": "2026-11-16",
     "sources": [
       "https://raysrental.com/quote/",
       "https://raysrental.com/inventory/",

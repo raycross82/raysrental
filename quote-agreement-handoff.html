@@ -12,7 +12,7 @@
    never a total; /agreement/ recomputes every figure from its own rates, so a hand-edited
    link cannot change what is owed.
 
-   Delivery is the one signed field: 0 for free pickup, -1 as the sentinel for "delivery and
+   New public quotes always use -1 as the sentinel for "delivery and
    setup, quoted by location", which /agreement/ renders as a subtotal with no final total
    and no dollar deposit until Ray confirms.
 
@@ -130,8 +130,8 @@
   // Both parties need to see what was actually picked, since the times above are derived.
   function notes(dropoffValue, pickupValue, fulfillmentValue){
     var line = 'Drop-off: ' + (clean(dropoffValue) || DEFAULT_DROPOFF) +
-               '. Pick-up: ' + (clean(pickupValue) || DEFAULT_PICKUP) +
-               '. Fulfillment: ' + (clean(fulfillmentValue) || 'Free Pickup') + '.';
+               '. Collection: ' + (clean(pickupValue) || DEFAULT_PICKUP) +
+               '. Fulfillment: Delivery & Setup.';
     return line.length > NOTES_MAX ? line.slice(0, NOTES_MAX - 1) + '.' : line;
   }
 
@@ -158,11 +158,11 @@
 
     var offer = promotion(values);
     qty = offer.qty;
-    var delivery = clean(values.fulfillment) === 'Free Pickup' ? 0 : -1;
+    var delivery = -1;
     var place = [clean(values.address), clean(values.city)].filter(Boolean).join(', ');
     // Address is optional on this form and /agreement/ needs the field, so say plainly where
     // the equipment goes rather than shipping a payload the agreement page will reject.
-    if (!place) place = delivery === 0 ? "Pickup at Ray's Rentals lot, DFW" : 'Address to be confirmed with Ray';
+    if (!place) place = 'Address to be confirmed with Ray';
 
     return encode([
       '2',
@@ -235,7 +235,7 @@
     var digits = phoneInput.value.replace(/\D/g,'');
     phoneInput.setCustomValidity(digits.length === 10 || (digits.length === 11 && digits[0] === '1') ? '' : 'Please enter a 10-digit phone number, with area code.');
     if (!form.reportValidity()) return;
-    if (value('fulfillment') !== 'Free Pickup' && !value('city').trim()) {
+    if (!value('city').trim()) {
       showError('Please add your event city so we can quote delivery.'); form.elements.city.focus(); return;
     }
     var hash = null;

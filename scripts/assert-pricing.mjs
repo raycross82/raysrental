@@ -104,7 +104,7 @@ runInNewContext(quote.split('/* rr-agreement-handoff:start */')[1].split('/* rr-
 });
 // Execute the shipped cart script against its rendered input prices. This catches
 // rounding differences between the visible/hidden quote values and the agreement.
-for (const [pkg, quantities, total, delivery = false] of [
+for (const [pkg, quantities, total, delivery = true] of [
   ['none', {tables:5,chairs:30},120,true], ['none', {tables:5,chairs:30},120], ['none',{tables:5,chairs:30,coolers:1},120], ['none',{tables:5,chairs:30,coolers:2},138],
   ['party60', {}, 200], ['cookout60', {}, 225], ['wholeparty', {}, 250],
   ['cookout60', {tables:1,chairs:1}, 236.5], ['none', {tables:1,chairs:1,coolers:1,speakers:1}, 69.5],
@@ -120,25 +120,17 @@ for (const [pkg, quantities, total, delivery = false] of [
   let mobileUpdates = 0;
   runInNewContext(read('assets/js/quote.js'), {
     document:{
-      querySelector:s => s === 'input[name=package]:checked' ? selected : s === 'input[name=fulfillment]:checked' ? {value:delivery?'Delivery & Setup':'Free Pickup'} : node(s),
+      querySelector:s => s === 'input[name=package]:checked' ? selected : s === 'input[name=fulfillment]:checked' ? {value:'Delivery & Setup'} : node(s),
       querySelectorAll:() => [], createElement:() => ({})
     },
     location:{search:''},window:{rrQuoteHandoff:handoffWindow.rrQuoteHandoff,rrQuoteBar(){mobileUpdates++;}}
   });
-  const number = s => Number(node(s).textContent.replace('$',''));
-  const deposit = Math.round(total * 25) / 100;
-  assert.equal(node('#s-total').textContent, '$'+(total%1?total.toFixed(2):total)+(delivery?' + delivery':''));
-  if (delivery) {
-    assert.equal(node('#s-deposit').textContent,'Confirmed with delivery');
-    assert.equal(node('#f-deposit').value,'To be confirmed');
-    assert.equal(node('#delivery-note').hidden,false);
-    continue;
-  }
-  assert.equal(number('#s-deposit'), deposit);
-  assert.equal(number('#s-balance'), Math.round((total-deposit)*100)/100);
-  assert.equal(Math.round((number('#s-deposit') + number('#s-balance'))*100), Math.round(total*100));
+  assert.equal(node('#s-total').textContent, '$'+(total%1?total.toFixed(2):total)+' + delivery');
+  assert.equal(node('#s-deposit').textContent,'Confirmed with delivery');
+  assert.equal(node('#f-deposit').value,'To be confirmed');
+  assert.equal(node('#delivery-note').hidden,false);
+  assert.equal(node('#s-balance').textContent,'Confirmed with delivery');
   assert.equal(node('#f-total').value, node('#s-total').textContent);
-  assert.equal(node('#f-deposit').value, node('#s-deposit').textContent);
   assert.equal(mobileUpdates, 1);
 }
 console.log(`assert-pricing: ${pages.length} pages checked, ${blocks} JSON-LD blocks parse, ${faqs} FAQ answers match, ${offers} offers agree; all prices, savings and $100 promo correct`);

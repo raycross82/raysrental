@@ -549,13 +549,13 @@ if (agreement) {
 }
 
 // The three packages, built by the page's own encoder and priced by the page's own pricing
-// function, for a one-day rental with free pickup. The expected totals are the prices the
+// function, for a one-day rental with delivery pending. Equipment subtotals are the prices the
 // packages were signed off with, and they are checked against the /quote/ cards as well.
 const PACKAGE_TOTALS = { 'Party for 60': 200, 'Cookout for 60': 225, 'The Whole Party': 250 };
 const ONE_DAY = {
   name: 'Maria Gonzalez', phone: '214-555-0142', email: '', address: '1801 N Lamar St', city: 'Dallas TX',
   date: '2026-09-19', dropoffTiming: 'Morning of the event', pickupTiming: 'Same night after the event',
-  fulfillment: 'Free Pickup',
+  fulfillment: 'Delivery & Setup',
 };
 
 let pkgChecked = 0;
@@ -569,7 +569,7 @@ if (handoff && agreement) {
     }
     const sums = agreement.price(parsed);
     if (sums.days !== 1) fail(`quote handoff: "${name}" with same-day timings prices ${sums.days} days, expected 1`);
-    if (sums.total !== want) fail(`quote handoff: "${name}" prices to $${sums.total} for one day, expected $${want}`);
+    if (!sums.deliveryUnknown || sums.total !== null || sums.subtotal - parsed.discount !== want) fail(`quote handoff: "${name}" equipment subtotal should be $${want} with delivery pending`);
 
     const card = new RegExp(`value="${name}" data-price="(\\d+)"`).exec(quotePage);
     if (!card) fail(`${QUOTE_PAGE}: no package card for "${name}" to price against`);
@@ -598,8 +598,8 @@ if (handoff && agreement) {
     const hash = handoff.build(values);
     return hash ? agreement.fromBase64Url(hash).split('|')[12] : null;
   };
-  if (deliveryOf({ ...ONE_DAY, package: 'Party for 60' }) !== '0') {
-    fail('quote handoff: Free Pickup does not encode a delivery of 0');
+  for (const fulfillment of ['', 'Free Pickup', 'Delivery & Setup']) {
+    if (deliveryOf({ ...ONE_DAY, package: 'Party for 60', fulfillment }) !== '-1') fail('quote handoff: new quotes must always leave delivery pending');
   }
   if (deliveryOf({ ...ONE_DAY, package: 'Party for 60', fulfillment: 'Delivery & Setup' }) !== '-1') {
     fail('quote handoff: Delivery & Setup does not encode the -1 quoted-by-location sentinel');
@@ -727,8 +727,10 @@ if (handoff && agreement) {
     for (const dropoffTiming of dropoffs) for (const pickupTiming of pickups) {
       const parsed = agreement.parsePayload(handoff.build({...ONE_DAY, package:name, dropoffTiming, pickupTiming}));
       const sums = parsed && agreement.price(parsed);
-      if (parsed?.pricingVersion !== '2' || sums?.total !== total || sums.days !== 1) fail(`current quote: ${name} changes price across delivery windows`);
-      if (sums?.deposit !== total * .25) fail(`current quote: ${name} deposit lost cents`);
+      if (parsed?.pricingVersion !== '2' || !sums?.deliveryUnknown || sums.total !== null || sums.subtotal - parsed.discount !== total || sums.days !== 1) fail(`current quote: ${name} changes price across delivery windows`);
+      if (sums?.deposit !== null || sums?.balance !== null) fail(`current quote: ${name} must wait for delivery confirmation`);
+      const confirmed = agreement.price({...parsed, delivery:150});
+      if (confirmed.total !== total+150 || confirmed.deposit !== (total+150)*.25) fail(`confirmed quote: ${name} delivery/deposit changed`);
       currentChecks++;
     }
   }
@@ -739,7 +741,7 @@ if (handoff && agreement) {
   ];
   for (const [items, total] of cases) {
     const parsed = agreement.parsePayload(handoff.build({...ONE_DAY,...items}));
-    const sums = parsed && agreement.price(parsed);
+    const sums = parsed && agreement.price({...parsed,delivery:0});
     if (sums?.total !== total) fail('current quote: mixed-item total disagrees');
     const deposit = Math.round(total * 25) / 100;
     if (sums?.deposit !== deposit || sums?.balance !== total - deposit) fail('current quote: deposit/balance rounding disagrees');
