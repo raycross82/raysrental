@@ -30,7 +30,7 @@ cart = cart.replace("if(m){var r=document.querySelector('input[name=package][dat
 write('assets/js/quote.js',cart);
 for(const path of fs.readdirSync('out',{recursive:true}).filter(p=>p.endsWith('.html'))){
   let html=read(path);
-  html=html.replace('</head>','<link rel="stylesheet" href="/assets/css/mobile-forms.css?v=1">\n</head>');
+  html=html.replace('</head>','<link rel="stylesheet" href="/assets/css/mobile-forms.css?v=2">\n</head>');
   // Never send preview/QA activity into the live GA4 property.
   html=html.replace(/<script async src="https:\/\/www.googletagmanager.com\/gtag\/js\?id=([^\"]+)"><\/script>/g,
     (_,id)=>`<script>if(/^(www\\.)?raysrental\\.com$/.test(location.hostname)){var ga=document.createElement('script');ga.async=true;ga.src='https://www.googletagmanager.com/gtag/js?id=${id}';document.head.appendChild(ga);}</script>`);
