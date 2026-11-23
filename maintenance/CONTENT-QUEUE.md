@@ -55,3 +55,6 @@ Main remains 21cc20f and production deploy 6af3485f920f862b7cd45145 is ready. Th
 The owner is considering a rental minimum in a separate conversation. A final minimum amount and calculation rule are still needed before changing prices, forms or article claims. Review seasonal relevance again if Thanksgiving publication is delayed.
 
 Full build passed with 54 pages, 46 JSON-LD blocks, 93 FAQ answers and 46 sitemap targets. Quote/form and preview tracking-isolation tests passed. Editorial generation is repeatable. Live homepage, quote, blog, robots and sitemap responded HTTP 200.
+
+Visual review found shared-header logo/navigation overlap at 1040px. The build now uses the existing expandable menu through 1200px. No menu links or business policies changed.
+Desktop and 390px mobile layouts reviewed; the 1040px expandable menu opens and its quote link works. Full build and regression checks passed again after the navigation correction. No lead form submitted.
