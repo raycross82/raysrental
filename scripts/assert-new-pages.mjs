@@ -721,6 +721,24 @@ for (const clause of [
 // pickup/drop-off window. Legacy v1 vectors above deliberately retain old rates.
 let currentChecks = 0;
 if (handoff && agreement) {
+  for (const [items, expected] of [
+    [{'10x20':1},300], [{'20x20':1},500], [{'20x40':1},750],
+    [{'20x20':1,tables:4,chairs:24},596], [{'20x40':1,package:'Party for 60'},950],
+    [{'10x20':2,'20x20':1,'20x40':1},1850],
+  ]) {
+    const parsed = agreement.parsePayload(handoff.build({...ONE_DAY, ...items}));
+    const cart = handoff.promotion(items);
+    const sums = parsed && agreement.price(parsed);
+    if (parsed?.pricingVersion !== '3' || cart.total !== expected ||
+      sums?.subtotal - parsed.discount !== expected || sums.deposit !== null) {
+      fail('Tent cart and agreement disagree: ' + JSON.stringify(items));
+    }
+    for (const size of ['10x20','20x20','20x40']) {
+      if (parsed.qty[size] !== (items[size] || 0)) fail('Tent quantity lost: ' + size);
+    }
+    currentChecks++;
+  }
+
   const dropoffs = ['Evening before the event', 'Morning of the event', 'Afternoon of the event', 'Not sure yet - Ray will confirm'];
   const pickups = ['Morning after the event', 'Same night after the event', 'Next evening', 'Not sure yet - Ray will confirm'];
   for (const [name, total] of Object.entries(PACKAGE_TOTALS)) {

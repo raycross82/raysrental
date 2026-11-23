@@ -16,6 +16,11 @@ for (const [id,label] of Object.entries({tables:'Additional tables',chairs:'Addi
 write('quote/index.html',quote);
 write('contact/index.html',read('contact/index.html').replace('<body>', '<body class="rr-contact-page">'));
 let cart = read('assets/js/quote.js');
+cart = cart.replace("['tables','chairs','coolers','speakers']", JSON.stringify([...Object.keys(pricing.rates), ...Object.keys(pricing.tentRates)]));
+cart = cart.replace('  // preselect package', `  // Add the linked tent to a new quote before the first summary render.
+  var tentParam = (location.search.match(/[?&]tent=(10x20|20x20|20x40)(?:&|$)/) || [])[1];
+  if (tentParam) $('#q-' + tentParam).value = 1;
+  // preselect package`);
 assert(cart.includes("if(q>0){items.push"));
 cart = cart.replace('var items=[],sub=pkgPrice;', "var items=[],sub=pkgPrice,values={package:pkg.value};\n    qtyIds.forEach(function(id){ values[id]=$('#q-'+id).value; });\n    var offer=window.rrQuoteHandoff.promotion(values);");
 cart = cart.replace("if(q>0){items.push({name:el.dataset.name,qty:q,line:q*p});sub+=q*p;}", "if(id==='coolers' && offer.freeCooler){\n        items.push({name:'Complimentary cooler',qty:1,line:0});\n        q=Math.max(0,q-1);\n      }\n      if(q>0){items.push({name:el.dataset.name,qty:q,line:q*p});sub+=q*p;}");

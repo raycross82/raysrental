@@ -311,6 +311,7 @@ gtag('config', 'G-Z6VJLTSTYQ', {page_location: 'https://raysrental.com/agreement
           <input type="hidden" name="chairs" id="f-chairs">
           <input type="hidden" name="coolers" id="f-coolers">
           <input type="hidden" name="speakers" id="f-speakers">
+          <input type="hidden" name="tents" id="f-tents">
           <input type="hidden" name="delivery_setup" id="f-delivery_setup">
           <input type="hidden" name="discount" id="f-discount">
           <input type="hidden" name="subtotal" id="f-subtotal">
@@ -461,6 +462,8 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
 
   var LEGACY_RATES = {tables:8, chairs:2, coolers:12, speakers:30};
   var RATES   = {tables:9, chairs:2.5, coolers:18, speakers:40};
+  var TENT_RATES = {}; // Filled from pricing.json at build time.
+  var TENT_ORDER = ['10x20', '20x20', '20x40'];
   var LABELS  = {tables:'6-ft Folding Table', chairs:'Folding Chair', coolers:'Drink Cooler', speakers:'JBL PartyBox 110 Speaker'};
   var ORDER   = ['tables','chairs','coolers','speakers'];
   var VERSION = 'RR-AGR-v1.0';
@@ -517,8 +520,9 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     if (!decoded) return null;
 
     var f = decoded.split('|');
-    if (f.length !== 15) return null;
-    if (f[0] !== '1' && f[0] !== '2') return null;
+    var withTents = f[0] === '3';
+    if (f.length !== (withTents ? 18 : 15)) return null;
+    if (!withTents && f[0] !== '1' && f[0] !== '2') return null;
     if (!f[1] || !f[2] || !f[3] || !f[5]) return null;
     if (!DT_RE.test(f[6]) || !DT_RE.test(f[7])) return null;
 
@@ -526,6 +530,13 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     for (var i = 0; i < ORDER.length; i++) {
       q[ORDER[i]] = int(f[8 + i]);
       if (q[ORDER[i]] === null) return null;
+    }
+    if (withTents) {
+      for (var t = 0; t < TENT_ORDER.length; t++) {
+        var units = int(f[15 + t]);
+        if (units === null || units > 9999) return null;
+        q[TENT_ORDER[t]] = units;
+      }
     }
     var delivery = deliveryOf(f[12]);
     var discount = money(f[13]);
@@ -553,7 +564,7 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
   function price(quote){
     // v2 is the single-event quote shown by /quote/. The delivery window is not
     // a billable duration. Keep historical v1 links on their original calculation.
-    var current = quote.pricingVersion === '2';
+    var current = quote.pricingVersion === '2' || quote.pricingVersion === '3';
     var days = current ? 1 : daysBetween(quote.start, quote.end);
     var rates = current ? RATES : LEGACY_RATES;
     var lines = [], subtotal = 0;
@@ -564,6 +575,17 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
       subtotal += amount;
       lines.push({key:key, label:LABELS[key], qty:qty, rate:rates[key], days:days, amount:amount});
     });
+    if (quote.pricingVersion === '3') {
+      TENT_ORDER.forEach(function(size) {
+        var units = quote.qty[size];
+        if (!units) return;
+        var rate = TENT_RATES[size];
+        var amount = units * rate;
+        subtotal += amount;
+        lines.push({key:size, label:size.replace('x', ' × ') + ' ft tent (setup included)',
+          qty:units, rate:rate, days:1, amount:amount});
+      });
+    }
     // Delivery quoted by location: there is no total to state yet, so none is produced. Null
     // rather than 0 so nothing downstream can format it as a figure the renter might owe.
     if (quote.delivery === UNKNOWN) {
@@ -687,12 +709,12 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
     foot.textContent = '';
     if (sums.deliveryUnknown) {
       foot.appendChild(footRow('ag-sub', 'Equipment subtotal', fmt(sums.subtotal)));
-      foot.appendChild(footRow('', 'Delivery & setup', '— quoted by location, Ray will confirm', 'ag-quoted'));
+      foot.appendChild(footRow('', q.pricingVersion === '3' ? 'Delivery / optional furniture setup' : 'Delivery & setup', '— quoted by location, Ray will confirm', 'ag-quoted'));
       if (q.discount > 0) foot.appendChild(footRow('', 'Package / promotion savings', '-' + fmt(q.discount)));
       text('ag-depnote', 'Your final total and 25% deposit will be confirmed by Ray before anything is due.');
     } else {
       foot.appendChild(footRow('ag-sub', 'Subtotal', fmt(sums.subtotal)));
-      foot.appendChild(footRow('', 'Delivery & setup', fmt(q.delivery)));
+      foot.appendChild(footRow('', q.pricingVersion === '3' ? 'Delivery / optional furniture setup' : 'Delivery & setup', fmt(q.delivery)));
       if (q.discount > 0) foot.appendChild(footRow('', 'Package / promotion savings', '-' + fmt(q.discount)));
       foot.appendChild(footRow('ag-total', 'Total', fmt(sums.total)));
       foot.appendChild(footRow('ag-dep', 'Deposit due (25%)', fmt(sums.deposit)));
@@ -714,6 +736,8 @@ document.querySelectorAll('.main-nav a').forEach(function(a){a.addEventListener(
       total:    sums.deliveryUnknown ? pending : String(sums.total),
       deposit:  sums.deliveryUnknown ? pending : String(sums.deposit),
       balance:  sums.deliveryUnknown ? pending : String(sums.balance),
+      tents: sums.lines.filter(function(line) { return TENT_ORDER.indexOf(line.key) !== -1; })
+        .map(function(line) { return line.qty + ' × ' + line.label + ' at ' + fmt(line.rate); }).join('; '),
       notes: q.notes, agreement_version: VERSION,
       user_agent: navigator.userAgent
     };

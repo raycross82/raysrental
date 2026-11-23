@@ -49,3 +49,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,
  .main-nav .nav-cta { margin-top:12px; text-align:center; border-bottom:0; }
 }
 @media (max-width:768px) { html { scroll-padding-bottom:calc(85px + env(safe-area-inset-bottom)); } }
+
+.rr-tent-cards { margin-top:20px; text-align:left; }
+.rr-tent-card { display:flex; flex-direction:column; align-items:start; gap:8px; }
+.rr-tent-card .price { margin-top:auto; }
+.rr-local-tents { margin:22px 0 0; line-height:1.9; }
+#rental-tents { margin:26px 0 10px; scroll-margin-top:84px; }
+.tent-hero .tent-rate strong { color:#f0c77f; font-size:1.45rem; }

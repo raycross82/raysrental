@@ -12,7 +12,7 @@ assert(!quickForm.includes('data-netlify'), 'Do not re-register or narrow the ex
 assert(quickForm.includes('name="form-name" value="quote"'));
 assert(quickForm.includes('action="/availability-requested/"'));
 assert.equal((quickForm.match(/\brequired\b/g) || []).length, 4);
-assert(html.includes('Free cooler with orders of $100 or more.'));
+assert(html.includes('Free cooler with $100+ in tables, chairs and speakers.'));
 assert(html.includes('href="https://raysrental.com/check-availability/"'));
 assert(fs.readFileSync('out/availability-requested/index.html', 'utf8').includes('content="noindex,follow"'));
 assert(!fs.readFileSync('out/sitemap.xml', 'utf8').includes('availability-requested'));
