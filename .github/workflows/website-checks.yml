@@ -1,0 +1,38 @@
+name: Website checks
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: website-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  website-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --ignore-scripts
+      - run: python scripts/build-site.py
+      - name: Check repeatable editorial generation
+        run: |
+          find out -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/before.sha256
+          node scripts/build-editorial.mjs
+          find out -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/after.sha256
+          diff /tmp/before.sha256 /tmp/after.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewed-website
+          path: out/
+          retention-days: 14
