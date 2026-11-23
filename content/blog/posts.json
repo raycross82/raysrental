@@ -18,11 +18,11 @@
   {
     "slug": "pickup-delivery-setup-party-rentals-dfw",
     "title": "Table and Chair Delivery in DFW: Setup and After-Event Collection",
-    "description": "Plan your DFW rental delivery, venue access, optional setup and after-event collection. Use the checklist to request a quote.",
+    "description": "Plan DFW table and chair delivery with a venue access checklist covering entrances, stairs, loading times, optional setup and after-event collection.",
     "category": "Rental planning",
     "summary": "Confirm the loading entrance, furniture layout and collection window before your event.",
     "bodyFile": "pickup-delivery-setup-party-rentals-dfw.html",
-    "reviewedOn": "2026-11-16",
+    "reviewedOn": "2026-11-23",
     "sources": [
       "https://raysrental.com/quote/",
       "https://raysrental.com/faq/",
@@ -44,7 +44,7 @@
       "https://raysrental.com/inventory/",
       "https://raysrental.com/blog/seating-guide/"
     ],
-    "rationale": "Seasonal planning hypothesis for November; existing blog has no holiday dinner guide. No search-volume or conversion uplift claim: analytics retrieval is unavailable.",
+    "rationale": "Seasonal meal planning intent. Use current business facts and explicit seating assumptions. Evaluate results after publication.",
     "intent": "Help DFW hosts plan seating and request availability for a Thanksgiving or Friendsgiving meal."
   }
 ]
