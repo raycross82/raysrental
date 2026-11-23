@@ -5,7 +5,7 @@
    agreement. If the connection fails or times out, keep the customer's details
    and offer an explicit retry; never silently post a second copy.
 
-   New quotes use v2 of the pipe-separated format: 15 fields, current rates, and one
+   Quotes use v2 (15 fields) or v3 (the same fields plus three tent quantities), current rates, and one
    quoted event day. Delivery/pickup windows do not add rental days. Existing v1 links
    retain their original rates and duration calculation. Both versions use
    UTF-8, base64url, no padding. Only raw inputs travel -- quantities, delivery, discount --
@@ -35,6 +35,9 @@
   };
 
   var PROMO_RATES = {tables:9, chairs:2.5, coolers:18, speakers:40};
+  var TENT_RATES = {}; // Filled from pricing.json at build time.
+  // The last three fields in a v3 agreement use this fixed order.
+  var TENT_ORDER = ['10x20', '20x20', '20x40'];
   var PROMO_MINIMUM = 100;
   // One complimentary cooler on qualifying non-cooler rentals. Packages already
   // containing coolers include the offer; they do not receive a third cooler.
@@ -51,6 +54,14 @@
       if (!qty.coolers) { qty.coolers = 1; gross += PROMO_RATES.coolers; }
       discount += PROMO_RATES.coolers;
     }
+    // The cooler offer applies to furniture and sound only.
+    TENT_ORDER.forEach(function(size) {
+      var units = count(values[size]);
+      if (units) {
+        qty[size] = units;
+        gross += units * TENT_RATES[size];
+      }
+    });
     return {qty:qty, discount:discount, freeCooler:eligible, included:!!(pkg && pkg.coolers), total:gross-discount};
   }
 
@@ -148,24 +159,18 @@
     var name = clean(values.name), phone = clean(values.phone);
     if (!name || !phone) return null;
 
-    var pkg = PACKAGES[clean(values['package'])] || null;
-    var qty = {}, items = 0;
-    for (var i = 0; i < ORDER.length; i++) {
-      qty[ORDER[i]] = (pkg ? pkg[ORDER[i]] : 0) + count(values[ORDER[i]]);
-      items += qty[ORDER[i]];
-    }
-    if (!items) return null;                       // an agreement for nothing is not signable
-
     var offer = promotion(values);
-    qty = offer.qty;
+    var qty = offer.qty;
+    if (!Object.keys(qty).some(function(key) { return qty[key] > 0; })) return null;
+    var hasTent = TENT_ORDER.some(function(size) { return qty[size] > 0; });
     var delivery = -1;
     var place = [clean(values.address), clean(values.city)].filter(Boolean).join(', ');
     // Address is optional on this form and /agreement/ needs the field, so say plainly where
     // the equipment goes rather than shipping a payload the agreement page will reject.
     if (!place) place = 'Address to be confirmed with Ray';
 
-    return encode([
-      '2',
+    var fields = [
+      hasTent ? '3' : '2',
       quoteNumber(now),
       name,
       phone,
@@ -180,7 +185,9 @@
       String(delivery),
       String(offer.discount),
       notes(values.dropoffTiming, values.pickupTiming, values.fulfillment) + (offer.freeCooler ? ' Includes one complimentary cooler.' : '')
-    ]);
+    ];
+    if (hasTent) TENT_ORDER.forEach(function(size) { fields.push(String(qty[size] || 0)); });
+    return encode(fields);
   }
 
   window.rrQuoteHandoff = {
@@ -210,6 +217,7 @@
     };
     values['package'] = value('package');
     for (var i = 0; i < ORDER.length; i++) values[ORDER[i]] = qty(ORDER[i]);
+    TENT_ORDER.forEach(function(size) { values[size] = qty(size); });
     return values;
   }
 

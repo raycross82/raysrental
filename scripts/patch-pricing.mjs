@@ -40,7 +40,7 @@ for (const rel of pages) {
     (all, n) => Object.hasOwn(oldMoney, n) ? '$' + money(oldMoney[n]) : all);
   html = html.replace(/data-price="(\d+(?:\.\d+)?)"/g,
     (all, n) => Object.hasOwn(oldData, n) ? `data-price="${oldData[n]}"` : all);
-  html = html.replaceAll('with any order $50+', `with any order $${money(freeCoolerMinimum)}+`);
+  html = html.replaceAll('with any order $50+', `with $${money(freeCoolerMinimum)}+ in tables, chairs &amp; speakers`);
   html = html.replaceAll('August 2026', updatedLabel);
   if (rel === 'quote/index.html') {
     const packageMap = Object.fromEntries(Object.values(packages).map(p => [p.name, {

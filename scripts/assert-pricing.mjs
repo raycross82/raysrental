@@ -79,10 +79,10 @@ assert.ok(blocks >= 43, 'JSON-LD blocks missing');
 assert.equal(offers, 27, 'Seven inventory offers and twenty city-page offers');
 for (const p of readdirSync('out/assets/js')) if (p.endsWith('.js')) new Script(read('assets/js/' + p), {filename:p});
 const homepage = read('index.html');
-assert.equal(homepage.split(`with any order $${config.freeCoolerMinimum}+`).length - 1, 2, 'Static and rotating promo agree');
+assert.equal(homepage.split(`with $${config.freeCoolerMinimum}+ in tables, chairs &amp; speakers`).length - 1, 2, 'Static and rotating promo agree');
 for (const p of ['index.html', 'inventory/index.html']) {
   const prices = [...read(p).matchAll(/<p class="price">\$([\d.]+)/g)].map(m => Number(m[1])).sort((a,b) => a-b);
-  assert.deepEqual(prices, [2.5,9,18,40,200,225,250], p + ': seven visible prices');
+  assert.deepEqual(prices, [2.5,9,18,40,200,225,250,...Object.values(config.tentRates)].sort((a,b) => a-b), p + ': visible item and package prices');
 }
 const quote = read('quote/index.html');
 for (const [key, rate] of Object.entries(rates)) {
@@ -106,13 +106,14 @@ runInNewContext(quote.split('/* rr-agreement-handoff:start */')[1].split('/* rr-
 // rounding differences between the visible/hidden quote values and the agreement.
 for (const [pkg, quantities, total, delivery = true] of [
   ['none', {tables:5,chairs:30},120,true], ['none', {tables:5,chairs:30},120], ['none',{tables:5,chairs:30,coolers:1},120], ['none',{tables:5,chairs:30,coolers:2},138],
+  ['none', {'20x20':1,tables:4,chairs:24},596], ['none', {'10x20':1,'20x40':2},1800],
   ['party60', {}, 200], ['cookout60', {}, 225], ['wholeparty', {}, 250],
   ['cookout60', {tables:1,chairs:1}, 236.5], ['none', {tables:1,chairs:1,coolers:1,speakers:1}, 69.5],
 ]) {
   const nodes = new Map();
   const node = id => { if (!nodes.has(id)) nodes.set(id, {value:'',textContent:'',dataset:{},addEventListener(){},appendChild(){}}); return nodes.get(id); };
   const selected = pkg === 'none' ? {value:'none',dataset:{price:'0'}} : {value:packages[pkg].name,dataset:{price:String(packages[pkg].price)}};
-  for (const [key, rate] of Object.entries(rates)) {
+  for (const [key, rate] of Object.entries({...rates,...config.tentRates})) {
     const el = node('#q-'+key);
     const input = new RegExp(`id="q-${key}"[^>]* data-price="([\\d.]+)" data-name="([^"]+)"`).exec(quote);
     el.value = String(quantities[key] || 0); el.dataset = {price:input[1],name:input[2]};
